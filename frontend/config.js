@@ -6,5 +6,9 @@ window.SERVER_CONFIG = {
     
     // Optional: Add your authentication token here
     // In production, get this from your login system
-    authToken: null  // Will use anonymous mode if null
+    authToken: null,  // Will use anonymous mode if null
+    
+    // Mode configuration (handled automatically by toggle)
+    // 'voice' - Uses Azure Realtime API (audio in/out)
+    // 'text' - Uses Azure Chat Completion API (text in/out)
 };

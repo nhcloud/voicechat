@@ -1,5 +1,12 @@
-﻿// Voice Bot - Production Architecture (Browser → Backend → Azure)
-// Secure: API keys stay on server, authentication supported
+﻿// Voice Bot - Dual Mode (Voice + Text Chat)
+// Production Architecture (Browser → Backend → Azure)
+
+// UI Elements
+const modeToggle = document.getElementById('modeToggle');
+const voiceContainer = document.getElementById('voiceContainer');
+const textContainer = document.getElementById('textContainer');
+const voiceControls = document.getElementById('voiceControls');
+const infoText = document.getElementById('infoText');
 
 const micBtn = document.getElementById('micBtn');
 const closeBtn = document.getElementById('closeBtn');
@@ -8,21 +15,30 @@ const glowRings = document.querySelectorAll('.glow-ring');
 const statusText = document.querySelector('.status-text');
 const settingsIcon = document.querySelector('.settings-icon');
 
+// Text Chat Elements
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const chatStatus = document.getElementById('chatStatus');
+
+// Mode Labels
+const modeLabels = document.querySelectorAll('.mode-label');
+
+// State Variables
+let currentMode = 'voice'; // 'voice' or 'text'
 let isListening = false;
 let isConnected = false;
 let ws = null;
+
+// Voice Mode Variables
 let audioContext = null;
 let mediaStream = null;
 let audioWorkletNode = null;
-
-// Audio playback
 let audioChunks = [];
 let isProcessingAudio = false;
 let nextPlayTime = 0;
 let currentAudioSource = null;
 let scheduledSources = [];
-
-// Response tracking
 let activeResponseId = null;
 let completedResponses = new Set();
 let responseTranscripts = new Map();
@@ -31,44 +47,105 @@ let isCancelling = false;
 let lastBargeInTime = 0;
 let bargeInCooldownMs = 1200;
 
-console.log('🎤 Voice Bot Initialized (Production Mode)');
-console.log('🔒 Secure: Connecting through backend server');
-updateStatus('Click microphone to start');
+// Text Mode Variables
+let conversationHistory = [];
+let isWaitingForResponse = false;
 
-// Connect to our backend server (which proxies to Azure)
+console.log('🎤 Dual-Mode Voice Bot Initialized');
+console.log('🔒 Secure: Connecting through backend server');
+
+// Initialize
+updateModeUI();
+
+// ============================================
+// MODE TOGGLE
+// ============================================
+
+modeToggle.addEventListener('change', () => {
+    const isVoiceMode = modeToggle.checked;
+    currentMode = isVoiceMode ? 'voice' : 'text';
+    
+    console.log(`🔄 Switching to ${currentMode} mode`);
+    
+    // Update UI
+    updateModeUI();
+    
+    // Disconnect if connected
+    if (isConnected) {
+        disconnectSession();
+    }
+    
+    // Clear text chat if switching from text to voice
+    if (isVoiceMode) {
+        conversationHistory = [];
+        const welcomeMsg = chatMessages.querySelector('.welcome-message');
+        if (welcomeMsg) {
+            chatMessages.innerHTML = '';
+            chatMessages.appendChild(welcomeMsg);
+        }
+    }
+});
+
+function updateModeUI() {
+    if (currentMode === 'voice') {
+        // Show voice UI
+        voiceContainer.style.display = 'flex';
+        textContainer.style.display = 'none';
+        voiceControls.style.display = 'flex';
+        infoText.style.display = 'block';
+        
+        // Update labels
+        modeLabels[0].classList.remove('active');
+        modeLabels[1].classList.add('active');
+        
+        updateStatus('Click microphone to start');
+    } else {
+        // Show text UI
+        voiceContainer.style.display = 'none';
+        textContainer.style.display = 'flex';
+        voiceControls.style.display = 'none';
+        infoText.style.display = 'none';
+        
+        // Update labels
+        modeLabels[0].classList.add('active');
+        modeLabels[1].classList.remove('active');
+        
+        updateChatStatus('Ready');
+        chatInput.focus();
+    }
+}
+
+// ============================================
+// VOICE MODE FUNCTIONS
+// ============================================
+
 async function connectToAzure() {
     try {
         updateStatus('Connecting...');
-        console.log('🔗 Connecting to backend server...');
+        console.log('🔗 Connecting to backend server (Voice Mode)...');
         
         let wsUrl = SERVER_CONFIG.websocketUrl;
         
-        // Add authentication token as query parameter if available
-        // In production, get this token from your login system
+        // Add mode parameter
+        wsUrl += '?mode=voice';
+        
         if (SERVER_CONFIG.authToken) {
-            wsUrl += `?token=${encodeURIComponent(SERVER_CONFIG.authToken)}`;
+            wsUrl += `&token=${encodeURIComponent(SERVER_CONFIG.authToken)}`;
             console.log('🔐 Using authentication token');
         }
         
         console.log('WebSocket URL:', wsUrl);
         
-        // Connect to our backend (not Azure directly)
-        // Backend will:
-        // 1. Authenticate the connection
-        // 2. Check rate limits
-        // 3. Create session
-        // 4. Proxy to Azure with server-side API key
-        // 5. Forward all messages bidirectionally
         ws = new WebSocket(wsUrl);
         
         ws.onopen = () => {
-            console.log('✅ Connected!');
+            console.log('✅ Connected to Voice Mode!');
             isConnected = true;
             updateStatus('Connected - Ready');
             sendSessionUpdate();
         };
         
-        ws.onmessage = (event) => handleAzureMessage(event.data);
+        ws.onmessage = (event) => handleVoiceMessage(event.data);
         
         ws.onerror = (error) => {
             console.error('❌ WebSocket error:', error);
@@ -82,12 +159,11 @@ async function connectToAzure() {
             if (isListening) stopListening();
         };
     } catch (error) {
-        console.error(' Failed:', error);
+        console.error('❌ Connection failed:', error);
         updateStatus('Failed: ' + error.message);
     }
 }
 
-// Send session config
 function sendSessionUpdate() {
     ws.send(JSON.stringify({
         type: 'session.update',
@@ -108,8 +184,7 @@ function sendSessionUpdate() {
     }));
 }
 
-// Handle Azure messages
-function handleAzureMessage(data) {
+function handleVoiceMessage(data) {
     try {
         const event = JSON.parse(data);
         
@@ -120,12 +195,10 @@ function handleAzureMessage(data) {
                 
             case 'input_audio_buffer.speech_started':
                 const nowTs = Date.now();
-                // Debounce multiple rapid speech_started events
                 if (nowTs - lastBargeInTime < bargeInCooldownMs) {
                     console.log('🛑 Ignoring speech_started (within cooldown)');
                     break;
                 }
-                // Only treat as interruption if AI audio is currently playing or active response present
                 const aiSpeaking = scheduledSources.length > 0 || currentAudioSource;
                 if (aiSpeaking || (activeResponseId && !isCancelling)) {
                     console.log('⚡ INTERRUPTION DETECTED - Cancelling AI response');
@@ -147,12 +220,9 @@ function handleAzureMessage(data) {
             case 'response.created':
                 updateStatus('AI thinking...');
                 console.log('🤖 AI response started');
-                // Allow currently scheduled audio to finish; only reset chunk accumulator
                 audioChunks = [];
-                // Maintain nextPlayTime so new audio appends seamlessly
                 isCancelling = false;
                 activeResponseId = event.response?.id || event.response_id;
-                // Clear any leftover cancelled response audio
                 stopAllScheduledAudio();
                 break;
                 
@@ -163,7 +233,6 @@ function handleAzureMessage(data) {
             case 'response.audio.delta':
                 const audioData = event.delta;
                 if (audioData) {
-                    // Ignore audio if we're cancelling
                     if (isCancelling) {
                         console.log('⚠️ Ignoring audio delta during cancellation');
                         break;
@@ -172,6 +241,7 @@ function handleAzureMessage(data) {
                     processAudioBuffer();
                 }
                 break;
+                
             case 'response.audio.done':
                 console.log('🏁 Audio complete');
                 processAudioBuffer(true);
@@ -211,75 +281,6 @@ micBtn.addEventListener('click', async () => {
     else stopListening();
 });
 
-// Close button
-closeBtn.addEventListener('click', () => {
-    console.log('🔴 Stop button pressed - Ending session');
-    
-    // Stop listening
-    if (isListening) {
-        stopListening();
-    }
-    
-    // Stop all audio immediately
-    stopAllScheduledAudio();
-    
-    // Clear all audio buffers
-    audioChunks = [];
-    isProcessingAudio = false;
-    nextPlayTime = 0;
-    
-    // Cancel active response if any
-    if (ws && ws.readyState === WebSocket.OPEN && activeResponseId) {
-        console.log('⛔ Cancelling active response before closing');
-        const cancelMsg = {
-            type: 'response.cancel',
-            response_id: activeResponseId,
-            event_id: ''
-        };
-        ws.send(JSON.stringify(cancelMsg));
-    }
-    
-    // Close WebSocket connection
-    if (ws) {
-        ws.close();
-        ws = null;
-    }
-    
-    // Reset state
-    isConnected = false;
-    activeResponseId = null;
-    completedResponses.clear();
-    responseTranscripts.clear();
-    cancelledResponses.clear();
-    isCancelling = false;
-    
-    // Stop microphone
-    if (audioWorkletNode) {
-        audioWorkletNode.disconnect();
-        audioWorkletNode = null;
-    }
-    
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(t => t.stop());
-        mediaStream = null;
-    }
-    
-    // Close audio context
-    if (audioContext) {
-        audioContext.close();
-        audioContext = null;
-    }
-    
-    updateStatus('Session ended');
-    console.log('✅ Session completely stopped');
-});
-
-// Settings
-settingsIcon.addEventListener('click', () => {
-    alert(`Endpoint: ${AZURE_CONFIG.endpoint}\nConnected: ${isConnected}\nListening: ${isListening}`);
-});
-
-// Start listening
 async function startListening() {
     micBtn.classList.add('active');
     mainOrb.classList.add('active');
@@ -309,15 +310,14 @@ async function startListening() {
         };
         
         source.connect(audioWorkletNode);
-        console.log(' Recording');
+        console.log('🎤 Recording');
     } catch (error) {
-        console.error(' Mic error:', error);
+        console.error('❌ Mic error:', error);
         updateStatus('Microphone denied');
         stopListening();
     }
 }
 
-// Stop listening
 function stopListening() {
     micBtn.classList.remove('active');
     mainOrb.classList.remove('active');
@@ -331,12 +331,8 @@ function stopListening() {
     mediaStream = null;
 }
 
-// Process audio buffer
 function processAudioBuffer(isComplete = false) {
-    // Don't process if already processing
     if (isProcessingAudio) return;
-    
-    // If we are cancelling, ignore any buffered audio until new response
     if (isCancelling) {
         console.log('⚠️ Cancellation in progress - skipping buffer processing');
         return;
@@ -358,7 +354,6 @@ function processAudioBuffer(isComplete = false) {
     }
 }
 
-// Play audio chunks
 async function playAudioChunks(chunks) {
     try {
         if (!audioContext) {
@@ -397,11 +392,10 @@ async function playAudioChunks(chunks) {
         
         await schedulePlayback(buffer);
     } catch (error) {
-        console.error(' Play error:', error);
+        console.error('❌ Play error:', error);
     }
 }
 
-// Schedule playback
 async function schedulePlayback(buffer) {
     if (audioContext.state === 'suspended') await audioContext.resume();
     if (buffer.duration < 0.01) return;
@@ -421,42 +415,32 @@ async function schedulePlayback(buffer) {
     source.start(startTime);
     currentAudioSource = source;
     
-    // Track scheduled source for potential interruption
     scheduledSources.push({ source, startTime, duration: buffer.duration });
-    
-    // Update next play time for seamless playback
     nextPlayTime = startTime + buffer.duration;
     
-    // Auto-cleanup when finished
     source.onended = () => {
         console.log('✅ Audio chunk ended');
         if (currentAudioSource === source) {
             currentAudioSource = null;
         }
-        // Remove from scheduled list
         scheduledSources = scheduledSources.filter(s => s.source !== source);
     };
     
-    // Add error handling
     source.onerror = (error) => {
         console.error('❌ Audio playback error:', error);
     };
 }
 
-// Interrupt current AI response for user speech
 function interruptForUserSpeech() {
     try {
         console.log('🛑 STOPPING ALL AUDIO FOR INTERRUPTION');
         
-        // Stop current playback immediately
         stopAllScheduledAudio();
         
-        // Clear queued / in-flight audio
         audioChunks = [];
         isProcessingAudio = false;
         nextPlayTime = audioContext ? audioContext.currentTime : 0;
         
-        // Cancel active response server-side
         if (ws && ws.readyState === WebSocket.OPEN && activeResponseId && !completedResponses.has(activeResponseId)) {
             console.log('⛔ Sending response.cancel for response', activeResponseId);
             const cancelMsg = {
@@ -475,7 +459,6 @@ function interruptForUserSpeech() {
     }
 }
 
-// Stop all scheduled audio sources
 function stopAllScheduledAudio() {
     const now = audioContext ? audioContext.currentTime : 0;
     console.log('🛑 Stopping all scheduled audio sources. Count:', scheduledSources.length, 'currentTime:', now);
@@ -492,10 +475,289 @@ function stopAllScheduledAudio() {
     currentAudioSource = null;
 }
 
-// Update status
 function updateStatus(msg) {
     statusText.textContent = msg;
 }
+
+// ============================================
+// TEXT MODE FUNCTIONS
+// ============================================
+
+async function connectTextMode() {
+    try {
+        updateChatStatus('Connecting...');
+        console.log('🔗 Connecting to backend server (Text Mode)...');
+        
+        let wsUrl = SERVER_CONFIG.websocketUrl;
+        
+        // Add mode parameter
+        wsUrl += '?mode=text';
+        
+        if (SERVER_CONFIG.authToken) {
+            wsUrl += `&token=${encodeURIComponent(SERVER_CONFIG.authToken)}`;
+            console.log('🔐 Using authentication token');
+        }
+        
+        console.log('WebSocket URL:', wsUrl);
+        
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+            console.log('✅ Connected to Text Mode!');
+            isConnected = true;
+            updateChatStatus('Connected');
+        };
+        
+        ws.onmessage = (event) => handleTextMessage(event.data);
+        
+        ws.onerror = (error) => {
+            console.error('❌ WebSocket error:', error);
+            updateChatStatus('Connection error');
+        };
+        
+        ws.onclose = (event) => {
+            console.log('🔌 Disconnected', event.code, event.reason);
+            isConnected = false;
+            updateChatStatus('Disconnected');
+        };
+    } catch (error) {
+        console.error('❌ Connection failed:', error);
+        updateChatStatus('Failed');
+    }
+}
+
+function handleTextMessage(data) {
+    try {
+        const message = JSON.parse(data);
+        
+        if (message.type === 'text_response') {
+            console.log('📨 Received text response');
+            removeTypingIndicator();
+            addMessage('assistant', message.content);
+            isWaitingForResponse = false;
+            updateChatStatus('Ready');
+        } else if (message.type === 'error') {
+            console.error('❌ Error:', message.error);
+            removeTypingIndicator();
+            addMessage('system', 'Error: ' + message.error);
+            isWaitingForResponse = false;
+            updateChatStatus('Error');
+        }
+    } catch (error) {
+        console.error('❌ Parse error:', error);
+    }
+}
+
+// Text input handlers
+chatInput.addEventListener('input', () => {
+    // Auto-resize textarea
+    chatInput.style.height = 'auto';
+    chatInput.style.height = chatInput.scrollHeight + 'px';
+    
+    // Enable/disable send button
+    sendBtn.disabled = !chatInput.value.trim() || isWaitingForResponse;
+});
+
+chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendTextMessage();
+    }
+});
+
+sendBtn.addEventListener('click', () => {
+    sendTextMessage();
+});
+
+async function sendTextMessage() {
+    const message = chatInput.value.trim();
+    if (!message || isWaitingForResponse) return;
+    
+    // Connect if not connected
+    if (!isConnected) {
+        await connectTextMode();
+        // Wait a bit for connection
+        await new Promise(resolve => setTimeout(resolve, 500));
+        if (!isConnected) {
+            updateChatStatus('Connection failed');
+            return;
+        }
+    }
+    
+    // Clear input
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    sendBtn.disabled = true;
+    
+    // Add user message to chat
+    addMessage('user', message);
+    
+    // Show typing indicator
+    showTypingIndicator();
+    
+    // Send to backend
+    isWaitingForResponse = true;
+    updateChatStatus('Sending...');
+    
+    try {
+        ws.send(JSON.stringify({
+            type: 'text_message',
+            content: message
+        }));
+        console.log('📤 Sent text message:', message);
+        updateChatStatus('Waiting for response...');
+    } catch (error) {
+        console.error('❌ Send error:', error);
+        removeTypingIndicator();
+        isWaitingForResponse = false;
+        updateChatStatus('Send failed');
+    }
+}
+
+function addMessage(role, content) {
+    // Remove welcome message if exists
+    const welcomeMsg = chatMessages.querySelector('.welcome-message');
+    if (welcomeMsg) {
+        welcomeMsg.remove();
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${role}`;
+    
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.textContent = role === 'user' ? '👤' : '🤖';
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    bubble.textContent = content;
+    
+    const time = document.createElement('div');
+    time.className = 'message-time';
+    time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    contentDiv.appendChild(bubble);
+    contentDiv.appendChild(time);
+    
+    messageDiv.appendChild(avatar);
+    messageDiv.appendChild(contentDiv);
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Store in history
+    conversationHistory.push({ role, content });
+}
+
+function showTypingIndicator() {
+    removeTypingIndicator(); // Remove if exists
+    
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'typing-indicator';
+    typingDiv.id = 'typingIndicator';
+    
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.textContent = '🤖';
+    
+    const dotsDiv = document.createElement('div');
+    dotsDiv.className = 'typing-dots';
+    
+    for (let i = 0; i < 3; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'typing-dot';
+        dotsDiv.appendChild(dot);
+    }
+    
+    typingDiv.appendChild(avatar);
+    typingDiv.appendChild(dotsDiv);
+    
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function removeTypingIndicator() {
+    const indicator = document.getElementById('typingIndicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+function updateChatStatus(status) {
+    chatStatus.textContent = status;
+}
+
+// ============================================
+// COMMON FUNCTIONS
+// ============================================
+
+// Close button - works for both modes
+closeBtn.addEventListener('click', () => {
+    console.log('🔴 Stop button pressed - Ending session');
+    
+    if (currentMode === 'voice') {
+        if (isListening) stopListening();
+        stopAllScheduledAudio();
+        audioChunks = [];
+        isProcessingAudio = false;
+        nextPlayTime = 0;
+        
+        if (audioWorkletNode) {
+            audioWorkletNode.disconnect();
+            audioWorkletNode = null;
+        }
+        
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(t => t.stop());
+            mediaStream = null;
+        }
+        
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+        }
+        
+        updateStatus('Session ended');
+    } else {
+        updateChatStatus('Session ended');
+    }
+    
+    disconnectSession();
+});
+
+function disconnectSession() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        if (currentMode === 'voice' && activeResponseId) {
+            console.log('⛔ Cancelling active response before closing');
+            const cancelMsg = {
+                type: 'response.cancel',
+                response_id: activeResponseId,
+                event_id: ''
+            };
+            ws.send(JSON.stringify(cancelMsg));
+        }
+        ws.close();
+    }
+    
+    ws = null;
+    isConnected = false;
+    activeResponseId = null;
+    completedResponses.clear();
+    responseTranscripts.clear();
+    cancelledResponses.clear();
+    isCancelling = false;
+    isWaitingForResponse = false;
+    
+    console.log('✅ Session disconnected');
+}
+
+// Settings
+settingsIcon.addEventListener('click', () => {
+    alert(`Mode: ${currentMode}\nConnected: ${isConnected}\nWebSocket: ${SERVER_CONFIG.websocketUrl}`);
+});
 
 // Utils
 function arrayBufferToBase64(buffer) {
@@ -514,11 +776,13 @@ function base64ToArrayBuffer(base64) {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
-        e.preventDefault();
-        micBtn.click();
+    if (currentMode === 'voice') {
+        if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            micBtn.click();
+        }
     }
     if (e.code === 'Escape') closeBtn.click();
 });
 
-console.log(' Ready - Click microphone!');
+console.log('✅ Ready - Toggle mode and start chatting!');
