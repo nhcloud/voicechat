@@ -1,44 +1,53 @@
 /* ===================================
    AI Voice Assistant - Professional UI
+   Light Theme
    =================================== */
 
 :root {
-    --bg-primary: #09090b;
-    --bg-secondary: #18181b;
-    --bg-tertiary: #27272a;
-    --bg-elevated: #3f3f46;
+    /* Light theme backgrounds */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    --bg-elevated: #e2e8f0;
     
-    --text-primary: #fafafa;
-    --text-secondary: #a1a1aa;
-    --text-muted: #71717a;
+    /* Dark text for light backgrounds */
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
     
-    --accent: #10b981;
-    --accent-hover: #34d399;
-    --accent-muted: rgba(16, 185, 129, 0.12);
-    --accent-glow: rgba(16, 185, 129, 0.35);
+    /* Accent colors - vibrant purple/blue */
+    --accent: #8b5cf6;
+    --accent-hover: #7c3aed;
+    --accent-muted: rgba(139, 92, 246, 0.12);
+    --accent-glow: rgba(139, 92, 246, 0.25);
     
     --accent-blue: #3b82f6;
     --accent-blue-muted: rgba(59, 130, 246, 0.12);
     
+    --accent-green: #10b981;
+    --accent-green-muted: rgba(16, 185, 129, 0.12);
+    
     --danger: #ef4444;
-    --danger-muted: rgba(239, 68, 68, 0.15);
+    --danger-muted: rgba(239, 68, 68, 0.1);
     
-    --border: rgba(255, 255, 255, 0.06);
-    --border-hover: rgba(255, 255, 255, 0.12);
+    /* Borders for light theme */
+    --border: rgba(0, 0, 0, 0.08);
+    --border-hover: rgba(0, 0, 0, 0.15);
     
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    --radius-xl: 20px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
     --radius-full: 9999px;
     
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+    /* Softer shadows for light theme */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);
     --shadow-glow: 0 0 40px var(--accent-glow);
     
-    --transition: 0.15s ease;
-    --transition-slow: 0.25s ease;
+    --transition: 0.2s ease;
+    --transition-slow: 0.3s ease;
 }
 
 * {
@@ -65,7 +74,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: linear-gradient(180deg, var(--bg-primary) 0%, #0c0c0e 100%);
+    background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
 }
 
 /* ===================================
@@ -77,7 +86,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 14px 28px;
-    background: rgba(24, 24, 27, 0.85);
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
     z-index: 100;
@@ -90,15 +99,15 @@ body {
 }
 
 .logo-icon {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, var(--accent-muted), rgba(16, 185, 129, 0.05));
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.05));
     border-radius: var(--radius-md);
-    color: var(--accent);
-    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
 .logo-content {
@@ -108,8 +117,8 @@ body {
 }
 
 .logo-text {
-    font-size: 17px;
-    font-weight: 600;
+    font-size: 18px;
+    font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--text-primary);
 }
@@ -118,6 +127,7 @@ body {
     font-size: 11px;
     color: var(--text-muted);
     letter-spacing: 0.02em;
+    font-weight: 500;
 }
 
 .header-actions {
@@ -127,12 +137,12 @@ body {
 }
 
 .header-btn {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     color: var(--text-secondary);
@@ -142,8 +152,8 @@ body {
 
 .header-btn:hover {
     background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border-color: var(--border-hover);
+    color: #8b5cf6;
+    border-color: rgba(139, 92, 246, 0.3);
 }
 
 /* ===================================
@@ -159,24 +169,24 @@ body {
 .mode-switcher {
     display: flex;
     position: relative;
-    background: var(--bg-tertiary);
+    background: var(--bg-secondary);
     border-radius: var(--radius-full);
     padding: 4px;
     border: 1px solid var(--border);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-md);
 }
 
 .mode-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 18px;
+    padding: 10px 20px;
     background: transparent;
     border: none;
     border-radius: var(--radius-full);
-    color: var(--text-secondary);
+    color: var(--text-muted);
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: var(--transition);
     position: relative;
@@ -202,10 +212,10 @@ body {
     position: absolute;
     top: 4px;
     bottom: 4px;
-    background: var(--bg-elevated);
+    background: #ffffff;
     border-radius: var(--radius-full);
     transition: var(--transition-slow);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-md);
 }
 
 /* ===================================
@@ -231,21 +241,21 @@ body {
 }
 
 .mode-badge.realtime {
-    background: linear-gradient(135deg, var(--accent-muted), rgba(16, 185, 129, 0.05));
-    color: var(--accent);
-    border: 1px solid rgba(16, 185, 129, 0.25);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.05));
+    color: #7c3aed;
+    border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
 .mode-badge.text {
     background: linear-gradient(135deg, var(--accent-blue-muted), rgba(59, 130, 246, 0.05));
     color: var(--accent-blue);
-    border: 1px solid rgba(59, 130, 246, 0.25);
+    border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .mode-desc-text {
     font-size: 14px;
     color: var(--text-secondary);
-    line-height: 1.6;
+    line-height: 1.7;
 }
 
 /* ===================================
@@ -276,122 +286,129 @@ body {
     position: relative;
 }
 
-.orb-container {
+/* Waveform Visualizer */
+.waveform-container {
     position: relative;
-    width: 260px;
-    height: 260px;
+    width: 360px;
+    height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid var(--border);
+    box-shadow: 
+        var(--shadow-lg),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    overflow: hidden;
 }
 
-/* Orb Rings */
-.orb-ring {
+.waveform-bg {
     position: absolute;
-    border-radius: 50%;
-    border: 1px solid var(--accent-muted);
-    animation: pulse 4s ease-in-out infinite;
+    inset: 0;
+    background: 
+        radial-gradient(ellipse at 50% 100%, rgba(139, 92, 246, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.04) 0%, transparent 50%);
 }
 
-.ring-outer {
-    width: 100%;
-    height: 100%;
-    animation-delay: 0s;
+.waveform-bars {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 1;
 }
 
-.ring-middle {
-    width: 80%;
-    height: 80%;
-    animation-delay: 0.5s;
+.wave-bar {
+    width: 8px;
+    height: 24px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #a78bfa 0%, #818cf8 50%, #60a5fa 100%);
+    transform-origin: center;
+    animation: wave-idle 2.5s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.12s);
+    opacity: 0.5;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
 }
 
-.ring-inner {
-    width: 60%;
-    height: 60%;
-    animation-delay: 1s;
-}
-
-@keyframes pulse {
+@keyframes wave-idle {
     0%, 100% {
-        transform: scale(1);
-        opacity: 0.3;
+        height: 24px;
+        opacity: 0.4;
     }
     50% {
-        transform: scale(1.08);
+        height: 40px;
         opacity: 0.6;
     }
 }
 
-/* Main Orb */
-.orb {
-    position: relative;
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
-    box-shadow: 
-        0 0 60px var(--accent-glow),
-        inset 0 0 40px rgba(255, 255, 255, 0.1);
-    animation: breathe 4s ease-in-out infinite;
+/* Active/Listening State */
+.waveform-container.active .wave-bar {
+    animation: wave-active 0.5s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.05s);
+    opacity: 1;
+    background: linear-gradient(180deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35);
 }
 
-.orb-glow {
+@keyframes wave-active {
+    0%, 100% {
+        height: 28px;
+    }
+    25% {
+        height: calc(50px + var(--i) * 5px);
+    }
+    50% {
+        height: calc(90px - var(--i) * 3px);
+    }
+    75% {
+        height: calc(60px + var(--i) * 4px);
+    }
+}
+
+/* Speaking State (AI responding) */
+.waveform-container.speaking .wave-bar {
+    animation: wave-speaking 0.35s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.03s);
+    background: linear-gradient(180deg, #10b981 0%, #14b8a6 50%, #06b6d4 100%);
+    opacity: 1;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+}
+
+@keyframes wave-speaking {
+    0%, 100% {
+        height: 35px;
+        transform: scaleY(1);
+    }
+    50% {
+        height: calc(75px + sin(var(--i)) * 20px);
+        transform: scaleY(1.15);
+    }
+}
+
+/* Glow Effect */
+.waveform-glow {
     position: absolute;
-    inset: -20px;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70%;
+    height: 50px;
+    background: radial-gradient(ellipse, rgba(139, 92, 246, 0.2) 0%, transparent 70%);
     filter: blur(20px);
-    opacity: 0.5;
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
-.orb-core {
-    position: absolute;
-    top: 20%;
-    left: 20%;
-    width: 30%;
-    height: 30%;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 70%);
-    filter: blur(8px);
+.waveform-container.active .waveform-glow {
+    opacity: 1;
+    background: radial-gradient(ellipse, rgba(139, 92, 246, 0.4) 0%, transparent 70%);
 }
 
-@keyframes breathe {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-    }
-}
-
-/* Active State */
-.orb.active {
-    animation: speaking 0.4s ease-in-out infinite;
-}
-
-@keyframes speaking {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.12);
-    }
-}
-
-.orb.active ~ .orb-ring {
-    border-color: var(--accent);
-    animation: pulse-active 0.6s ease-in-out infinite;
-}
-
-@keyframes pulse-active {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 0.5;
-    }
-    50% {
-        transform: scale(1.15);
-        opacity: 0.8;
-    }
+.waveform-container.speaking .waveform-glow {
+    opacity: 1;
+    background: radial-gradient(ellipse, rgba(16, 185, 129, 0.5) 0%, transparent 70%);
 }
 
 /* Voice Status */
@@ -437,46 +454,103 @@ body {
 }
 
 .voice-btn {
-    width: 72px;
-    height: 72px;
+    width: 76px;
+    height: 76px;
     border-radius: 50%;
     border: none;
-    background: var(--bg-elevated);
-    color: var(--text-primary);
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+    color: white;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: var(--transition);
-    border: 2px solid var(--border);
+    border: 3px solid rgba(139, 92, 246, 0.3);
+    box-shadow: 
+        0 4px 20px rgba(139, 92, 246, 0.3),
+        0 0 0 4px rgba(139, 92, 246, 0.1);
 }
 
 .voice-btn:hover {
-    background: var(--bg-tertiary);
-    border-color: var(--accent);
-    transform: scale(1.05);
+    transform: scale(1.08);
+    box-shadow: 
+        0 6px 28px rgba(139, 92, 246, 0.4),
+        0 0 0 6px rgba(139, 92, 246, 0.15);
 }
 
 .voice-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    box-shadow: 0 0 24px var(--accent-glow);
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border-color: rgba(239, 68, 68, 0.3);
+    box-shadow: 
+        0 4px 20px rgba(239, 68, 68, 0.4),
+        0 0 0 4px rgba(239, 68, 68, 0.1);
+    animation: pulse-btn 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-btn {
+    0%, 100% {
+        box-shadow: 
+            0 4px 20px rgba(239, 68, 68, 0.4),
+            0 0 0 4px rgba(239, 68, 68, 0.1);
+    }
+    50% {
+        box-shadow: 
+            0 6px 30px rgba(239, 68, 68, 0.5),
+            0 0 0 8px rgba(239, 68, 68, 0.15);
+    }
 }
 
 .voice-btn.active:hover {
-    background: var(--accent-hover);
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
 }
 
 .voice-btn-label {
     font-size: 14px;
-    color: var(--text-muted);
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* End Session Button */
+.end-session-container {
+    margin-top: 20px;
+}
+
+.end-session-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-full);
+    color: var(--danger);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.end-session-btn:hover {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+    transform: scale(1.02);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+}
+
+.end-session-btn:active {
+    transform: scale(0.98);
+}
+
+.end-session-btn svg {
+    flex-shrink: 0;
 }
 
 /* Voice Hint */
 .voice-hint {
-    padding: 10px 18px;
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-md);
+    padding: 12px 20px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
     border: 1px solid var(--border);
 }
 
@@ -636,11 +710,11 @@ body {
 }
 
 .message.user .message-avatar {
-    background: var(--accent);
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
 }
 
 .message.assistant .message-avatar {
-    background: var(--bg-elevated);
+    background: var(--bg-secondary);
     border: 1px solid var(--border);
 }
 
@@ -655,19 +729,21 @@ body {
     padding: 14px 18px;
     border-radius: var(--radius-lg);
     font-size: 15px;
-    line-height: 1.6;
+    line-height: 1.7;
 }
 
 .message.user .message-bubble {
-    background: var(--accent);
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
     color: white;
     border-bottom-right-radius: 4px;
+    box-shadow: 0 2px 12px rgba(139, 92, 246, 0.2);
 }
 
 .message.assistant .message-bubble {
-    background: var(--bg-tertiary);
+    background: #ffffff;
     border: 1px solid var(--border);
     border-bottom-left-radius: 4px;
+    box-shadow: var(--shadow-sm);
 }
 
 .message-time {
@@ -740,25 +816,26 @@ body {
     display: flex;
     align-items: flex-end;
     gap: 10px;
-    padding: 10px 14px;
-    background: var(--bg-secondary);
+    padding: 12px 16px;
+    background: #ffffff;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
     transition: var(--transition);
+    box-shadow: var(--shadow-sm);
 }
 
 .input-wrapper:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-muted);
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
 }
 
 /* Input Mic Button */
 .input-mic-btn {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border);
-    background: var(--bg-tertiary);
+    background: var(--bg-secondary);
     color: var(--text-secondary);
     cursor: pointer;
     display: flex;
@@ -769,13 +846,13 @@ body {
 }
 
 .input-mic-btn:hover {
-    background: var(--bg-elevated);
-    color: var(--accent);
-    border-color: var(--accent);
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border-color: #8b5cf6;
 }
 
 .input-mic-btn.recording {
-    background: var(--danger-muted);
+    background: rgba(239, 68, 68, 0.1);
     color: var(--danger);
     border-color: var(--danger);
     animation: pulse-recording 1s ease-in-out infinite;
@@ -812,11 +889,11 @@ body {
 }
 
 .send-btn {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     border-radius: var(--radius-md);
     border: none;
-    background: var(--accent);
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
     color: white;
     cursor: pointer;
     display: flex;
@@ -824,17 +901,20 @@ body {
     justify-content: center;
     transition: var(--transition);
     flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 .send-btn:hover:not(:disabled) {
-    background: var(--accent-hover);
+    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
     transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
 }
 
 .send-btn:disabled {
-    background: var(--bg-elevated);
+    background: var(--bg-tertiary);
     color: var(--text-muted);
     cursor: not-allowed;
+    box-shadow: none;
 }
 
 .send-btn svg {
@@ -895,24 +975,25 @@ body {
     align-items: center;
     gap: 8px;
     font-size: 12px;
+    font-weight: 500;
     color: var(--text-muted);
 }
 
 .connection-dot {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: var(--text-muted);
     transition: var(--transition);
 }
 
 .connection-bar.connected .connection-dot {
-    background: var(--accent);
-    box-shadow: 0 0 8px var(--accent);
+    background: #10b981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
 }
 
 .connection-bar.connected .connection-text {
-    color: var(--accent);
+    color: #10b981;
 }
 
 .footer-info {
@@ -1113,14 +1194,14 @@ body {
         padding: 10px 14px;
     }
     
-    .orb-container {
-        width: 200px;
-        height: 200px;
+    .waveform-container {
+        width: 280px;
+        height: 140px;
     }
     
-    .orb {
-        width: 110px;
-        height: 110px;
+    .wave-bar {
+        width: 5px;
+        gap: 4px;
     }
     
     .voice-mode {
