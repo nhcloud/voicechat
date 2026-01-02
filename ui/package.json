@@ -1,0 +1,15 @@
+{
+  "name": "voicechat-ui",
+  "version": "1.0.0",
+  "description": "Voice Chat Frontend - serves HTML/CSS/JS for voice bot interface",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["voicechat", "azure", "openai", "realtime"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

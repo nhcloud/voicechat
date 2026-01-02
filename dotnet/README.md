@@ -6,10 +6,13 @@ The .NET implementation of the Voice Chat backend using .NET 8.
 
 ## Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later
+- [Node.js 14+](https://nodejs.org/) (for frontend)
 - Configured `.env` file in the root `voicechat/` folder
 
 ## Quick Start
+
+### 1. Start the Backend
 
 ```bash
 cd backend
@@ -17,6 +20,16 @@ dotnet run
 ```
 
 The backend will start on **http://localhost:8001**.
+
+### 2. Start the Frontend
+
+```bash
+cd ../ui
+node server.js
+# or: npm start
+```
+
+The frontend will start on **http://localhost:8000** and open in your browser.
 
 ## Project Structure
 
@@ -45,7 +58,7 @@ dotnet/
 
 ### WebSocket Server
 
-The backend exposes a WebSocket endpoint at `/ws` that:
+The backend exposes a WebSocket endpoint at the root path `/` that:
 
 1. Accepts browser connections
 2. Reads the `mode` query parameter (`voice` or `text`)

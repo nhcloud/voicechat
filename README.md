@@ -53,13 +53,14 @@ voicechat/
 │   ├── README.md         # Python-specific setup
 │   └── backend/          # WebSocket server (port 8001)
 │
-└── ui/                   # Shared Frontend
+└── ui/                   # Shared Frontend (Node.js)
     ├── index.html        # Main UI
     ├── styles.css        # ChatGPT-style theme
     ├── script.js         # Voice/text logic
     ├── config.js         # WebSocket URL config
-    ├── audio-processor.js
-    └── server.py         # HTTP server (port 8000)
+    ├── audio-processor.js# Audio worklet for microphone
+    ├── server.js         # Node.js HTTP server (port 8000)
+    └── package.json      # Node.js package file
 ```
 
 > **Note:** Both backends use port 8001. Run only one backend at a time.
@@ -86,7 +87,7 @@ Choose **one** backend to run:
 
 | Backend | Command |
 |---------|---------|
-| Python | `pip install -r requirements.txt && cd python/backend && python server.py` |
+| Python | `cd python/backend && pip install -r requirements.txt && python3 server.py` |
 | .NET | `cd dotnet/backend && dotnet run` |
 
 See [Python README](python/README.md) or [.NET README](dotnet/README.md) for detailed setup.
@@ -95,8 +96,12 @@ See [Python README](python/README.md) or [.NET README](dotnet/README.md) for det
 
 ```bash
 cd ui
-python server.py
+node server.js
+# or
+npm start
 ```
+
+> **Note:** Requires Node.js 14+. No additional dependencies needed.
 
 ### Step 4: Open Browser
 

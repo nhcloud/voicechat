@@ -7,20 +7,35 @@ The Python implementation of the Voice Chat backend using asyncio and websockets
 ## Prerequisites
 
 - Python 3.8+
+- [Node.js 14+](https://nodejs.org/) (for frontend)
 - Configured `.env` file in the root `voicechat/` folder
 
 ## Quick Start
 
-```bash
-# From voicechat root folder
-pip install -r requirements.txt
+### 1. Install Dependencies
 
-# Then start the backend
-cd python/backend
-python server.py
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+### 2. Start the Backend
+
+```bash
+python3 server.py
 ```
 
 The backend will start on **http://localhost:8001**.
+
+### 3. Start the Frontend
+
+```bash
+cd ../../ui
+node server.js
+# or: npm start
+```
+
+The frontend will start on **http://localhost:8000** and open in your browser.
 
 ## Project Structure
 
