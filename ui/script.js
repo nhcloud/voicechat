@@ -19,6 +19,8 @@ const mainOrb = document.getElementById('mainOrb');
 const micBtn = document.getElementById('micBtn');
 const micBtnLabel = document.getElementById('micBtnLabel');
 const voiceStatus = document.getElementById('voiceStatus');
+const endSessionContainer = document.getElementById('endSessionContainer');
+const endSessionBtn = document.getElementById('endSessionBtn');
 
 // Text Mode
 const chatMessages = document.getElementById('chatMessages');
@@ -232,6 +234,11 @@ function updateConnectionStatus(connected, text = null) {
     connectionBar.classList.toggle('connected', connected);
     const textEl = connectionBar.querySelector('.connection-text');
     textEl.textContent = text || (connected ? 'Connected' : 'Disconnected');
+    
+    // Show/hide end session button based on connection state (voice mode only)
+    if (endSessionContainer) {
+        endSessionContainer.style.display = (connected && currentMode === 'voice') ? 'block' : 'none';
+    }
 }
 
 // ============================================
@@ -387,6 +394,23 @@ micBtn.addEventListener('click', async () => {
     if (isListening) await startListening();
     else stopListening();
 });
+
+// End Session button
+if (endSessionBtn) {
+    endSessionBtn.addEventListener('click', () => {
+        console.log('🛑 Ending voice session...');
+        if (isListening) stopListening();
+        stopAllScheduledAudio();
+        disconnectSession();
+        updateVoiceStatus('Session ended', false);
+        
+        // Reset mic button state
+        micBtn.classList.remove('active');
+        micBtn.querySelector('.mic-icon').style.display = 'block';
+        micBtn.querySelector('.stop-icon').style.display = 'none';
+        micBtnLabel.textContent = 'Click to speak';
+    });
+}
 
 async function startListening() {
     micBtn.classList.add('active');
