@@ -32,7 +32,10 @@ public class AzureRealtimeService
         ValidateConfiguration();
         
         var azureWsUrl = BuildAzureRealtimeUrl();
+        // Log URL without API key for debugging
+        var debugUrl = azureWsUrl.Split("&api-key=")[0];
         _logger.LogInformation("Connecting to Azure Realtime API for session {SessionId}...", sessionId[..8]);
+        _logger.LogInformation("Azure URL (key hidden): {Url}", debugUrl);
 
         using var azureWs = new ClientWebSocket();
         

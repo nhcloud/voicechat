@@ -6,32 +6,37 @@ using DotNetEnv;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Load .env file from root directory (parent of dotnet folder)
-var rootEnvPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".env");
-if (File.Exists(rootEnvPath))
+// Load .env file from root directory (voicechat folder)
+// Try multiple paths to find the .env file
+var envPaths = new[]
 {
-    Env.Load(rootEnvPath);
-    Console.WriteLine($"✓ Loaded .env from: {Path.GetFullPath(rootEnvPath)}");
+    // From current working directory (when running from dotnet/backend)
+    Path.Combine(Directory.GetCurrentDirectory(), "..", "..", ".env"),
+    // Direct path to voicechat root
+    "/Users/udaiapparamachandran/source/nhcloud/voicechat/.env",
+    // From AppContext base directory (when running built executable)
+    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".env"),
+    // Parent of current directory
+    Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"),
+};
+
+var envLoaded = false;
+foreach (var envPath in envPaths)
+{
+    var fullPath = Path.GetFullPath(envPath);
+    Console.WriteLine($"Checking for .env at: {fullPath}");
+    if (File.Exists(fullPath))
+    {
+        Env.Load(fullPath);
+        Console.WriteLine($"✓ Loaded .env from: {fullPath}");
+        envLoaded = true;
+        break;
+    }
 }
-else
+
+if (!envLoaded)
 {
-    // Try loading from current working directory's parent
-    var cwdEnvPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", ".env");
-    if (File.Exists(cwdEnvPath))
-    {
-        Env.Load(cwdEnvPath);
-        Console.WriteLine($"✓ Loaded .env from: {Path.GetFullPath(cwdEnvPath)}");
-    }
-    else
-    {
-        // Try loading from voicechat root
-        var voicechatRoot = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
-        if (File.Exists(voicechatRoot))
-        {
-            Env.Load(voicechatRoot);
-            Console.WriteLine($"✓ Loaded .env from: {Path.GetFullPath(voicechatRoot)}");
-        }
-    }
+    Console.WriteLine("⚠ Warning: No .env file found! Checking environment variables...");
 }
 
 // Add services
@@ -63,6 +68,23 @@ var azureSettings = new AzureOpenAISettings
     RealtimeApiVersion = Environment.GetEnvironmentVariable("API_VERSION_REALTIME") ?? "2024-10-01-preview",
     ChatApiVersion = Environment.GetEnvironmentVariable("API_VERSION_CHAT") ?? "2024-02-15-preview"
 };
+
+// Validate and display configuration
+Console.WriteLine("======================================================================");
+Console.WriteLine("Azure Configuration:");
+Console.WriteLine($"  Endpoint: {(string.IsNullOrEmpty(azureSettings.Endpoint) ? "❌ NOT SET" : "✓ " + azureSettings.Endpoint)}");
+Console.WriteLine($"  API Key: {(string.IsNullOrEmpty(azureSettings.ApiKey) ? "❌ NOT SET" : "✓ (hidden)")}");
+Console.WriteLine($"  Realtime Deployment: {azureSettings.RealtimeDeployment}");
+Console.WriteLine($"  Chat Deployment: {azureSettings.ChatDeployment}");
+Console.WriteLine($"  Realtime API Version: {azureSettings.RealtimeApiVersion}");
+Console.WriteLine($"  Chat API Version: {azureSettings.ChatApiVersion}");
+Console.WriteLine("======================================================================");
+
+if (string.IsNullOrEmpty(azureSettings.Endpoint) || string.IsNullOrEmpty(azureSettings.ApiKey))
+{
+    Console.WriteLine("❌ ERROR: Azure configuration incomplete! Check your .env file.");
+}
+
 builder.Services.AddSingleton(Microsoft.Extensions.Options.Options.Create(azureSettings));
 
 // Add custom services
@@ -85,8 +107,8 @@ app.UseWebSockets(new WebSocketOptions
     KeepAliveInterval = TimeSpan.FromSeconds(20)
 });
 
-// Map WebSocket handler
-app.Map("/ws", async context =>
+// Map WebSocket handler at root path (to match Python backend)
+app.Map("/", async context =>
 {
     if (context.WebSockets.IsWebSocketRequest)
     {
