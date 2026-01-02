@@ -276,122 +276,122 @@ body {
     position: relative;
 }
 
-.orb-container {
+/* Waveform Visualizer */
+.waveform-container {
     position: relative;
-    width: 260px;
-    height: 260px;
+    width: 320px;
+    height: 180px;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    border: 1px solid var(--border);
+    overflow: hidden;
 }
 
-/* Orb Rings */
-.orb-ring {
+.waveform-bg {
     position: absolute;
-    border-radius: 50%;
-    border: 1px solid var(--accent-muted);
-    animation: pulse 4s ease-in-out infinite;
+    inset: 0;
+    background: 
+        radial-gradient(ellipse at 50% 100%, rgba(139, 92, 246, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.06) 0%, transparent 50%);
 }
 
-.ring-outer {
-    width: 100%;
-    height: 100%;
-    animation-delay: 0s;
+.waveform-bars {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    z-index: 1;
 }
 
-.ring-middle {
-    width: 80%;
-    height: 80%;
-    animation-delay: 0.5s;
+.wave-bar {
+    width: 6px;
+    height: 20px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%);
+    transform-origin: center;
+    animation: wave-idle 2s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.1s);
+    opacity: 0.6;
+    transition: all 0.3s ease;
 }
 
-.ring-inner {
-    width: 60%;
-    height: 60%;
-    animation-delay: 1s;
-}
-
-@keyframes pulse {
+@keyframes wave-idle {
     0%, 100% {
-        transform: scale(1);
-        opacity: 0.3;
+        height: 20px;
+        opacity: 0.4;
     }
     50% {
-        transform: scale(1.08);
+        height: 35px;
         opacity: 0.6;
     }
 }
 
-/* Main Orb */
-.orb {
-    position: relative;
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
-    box-shadow: 
-        0 0 60px var(--accent-glow),
-        inset 0 0 40px rgba(255, 255, 255, 0.1);
-    animation: breathe 4s ease-in-out infinite;
+/* Active/Listening State */
+.waveform-container.active .wave-bar {
+    animation: wave-active 0.5s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.05s);
+    opacity: 1;
 }
 
-.orb-glow {
+@keyframes wave-active {
+    0%, 100% {
+        height: 25px;
+    }
+    25% {
+        height: calc(40px + var(--i) * 5px);
+    }
+    50% {
+        height: calc(80px - var(--i) * 3px);
+    }
+    75% {
+        height: calc(50px + var(--i) * 4px);
+    }
+}
+
+/* Speaking State (AI responding) */
+.waveform-container.speaking .wave-bar {
+    animation: wave-speaking 0.3s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.03s);
+    background: linear-gradient(180deg, #10b981 0%, #06b6d4 50%, #3b82f6 100%);
+    opacity: 1;
+}
+
+@keyframes wave-speaking {
+    0%, 100% {
+        height: 30px;
+        transform: scaleY(1);
+    }
+    50% {
+        height: calc(70px + sin(var(--i)) * 20px);
+        transform: scaleY(1.2);
+    }
+}
+
+/* Glow Effect */
+.waveform-glow {
     position: absolute;
-    inset: -20px;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-    filter: blur(20px);
-    opacity: 0.5;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 40px;
+    background: radial-gradient(ellipse, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+    filter: blur(15px);
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
-.orb-core {
-    position: absolute;
-    top: 20%;
-    left: 20%;
-    width: 30%;
-    height: 30%;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 70%);
-    filter: blur(8px);
+.waveform-container.active .waveform-glow {
+    opacity: 1;
+    background: radial-gradient(ellipse, rgba(139, 92, 246, 0.5) 0%, transparent 70%);
 }
 
-@keyframes breathe {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-    }
-}
-
-/* Active State */
-.orb.active {
-    animation: speaking 0.4s ease-in-out infinite;
-}
-
-@keyframes speaking {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.12);
-    }
-}
-
-.orb.active ~ .orb-ring {
-    border-color: var(--accent);
-    animation: pulse-active 0.6s ease-in-out infinite;
-}
-
-@keyframes pulse-active {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 0.5;
-    }
-    50% {
-        transform: scale(1.15);
-        opacity: 0.8;
-    }
+.waveform-container.speaking .waveform-glow {
+    opacity: 1;
+    background: radial-gradient(ellipse, rgba(16, 185, 129, 0.5) 0%, transparent 70%);
 }
 
 /* Voice Status */
@@ -1147,14 +1147,14 @@ body {
         padding: 10px 14px;
     }
     
-    .orb-container {
-        width: 200px;
-        height: 200px;
+    .waveform-container {
+        width: 280px;
+        height: 140px;
     }
     
-    .orb {
-        width: 110px;
-        height: 110px;
+    .wave-bar {
+        width: 5px;
+        gap: 4px;
     }
     
     .voice-mode {

@@ -15,7 +15,7 @@ const voiceContainer = document.getElementById('voiceContainer');
 const textContainer = document.getElementById('textContainer');
 
 // Voice Mode
-const mainOrb = document.getElementById('mainOrb');
+const waveformContainer = document.getElementById('waveformContainer');
 const micBtn = document.getElementById('micBtn');
 const micBtnLabel = document.getElementById('micBtnLabel');
 const voiceStatus = document.getElementById('voiceStatus');
@@ -350,6 +350,11 @@ function handleVoiceMessage(data) {
             case 'response.audio.delta':
                 if (event.delta && !isCancelling) {
                     audioChunks.push(event.delta);
+                    // Show speaking animation when AI starts responding
+                    if (waveformContainer && !waveformContainer.classList.contains('speaking')) {
+                        waveformContainer.classList.remove('active');
+                        waveformContainer.classList.add('speaking');
+                    }
                     processAudioBuffer();
                 }
                 break;
@@ -363,6 +368,13 @@ function handleVoiceMessage(data) {
                 if (doneResponseId) {
                     completedResponses.add(doneResponseId);
                     if (activeResponseId === doneResponseId) activeResponseId = null;
+                }
+                // Return to listening state or idle
+                if (waveformContainer) {
+                    waveformContainer.classList.remove('speaking');
+                    if (isListening) {
+                        waveformContainer.classList.add('active');
+                    }
                 }
                 updateVoiceStatus(isListening ? 'Listening...' : 'Ready', isListening);
                 processAudioBuffer(true);
@@ -404,17 +416,23 @@ if (endSessionBtn) {
         disconnectSession();
         updateVoiceStatus('Session ended', false);
         
-        // Reset mic button state
+        // Reset UI state
         micBtn.classList.remove('active');
         micBtn.querySelector('.mic-icon').style.display = 'block';
         micBtn.querySelector('.stop-icon').style.display = 'none';
         micBtnLabel.textContent = 'Click to speak';
+        
+        // Reset waveform
+        if (waveformContainer) {
+            waveformContainer.classList.remove('active', 'speaking');
+        }
     });
 }
 
 async function startListening() {
     micBtn.classList.add('active');
-    mainOrb.classList.add('active');
+    waveformContainer.classList.add('active');
+    waveformContainer.classList.remove('speaking');
     micBtn.querySelector('.mic-icon').style.display = 'none';
     micBtn.querySelector('.stop-icon').style.display = 'block';
     micBtnLabel.textContent = 'Click to stop';
@@ -452,7 +470,7 @@ async function startListening() {
 
 function stopListening() {
     micBtn.classList.remove('active');
-    mainOrb.classList.remove('active');
+    waveformContainer.classList.remove('active');
     micBtn.querySelector('.mic-icon').style.display = 'block';
     micBtn.querySelector('.stop-icon').style.display = 'none';
     micBtnLabel.textContent = 'Click to speak';
