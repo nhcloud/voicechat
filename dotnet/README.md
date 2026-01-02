@@ -6,7 +6,7 @@ The .NET implementation of the Voice Chat backend using .NET 8.
 
 ## Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Configured `.env` file in the root `voicechat/` folder
 
 ## Quick Start
