@@ -1,8 +1,14 @@
-# Python
+# Environment files with secrets
+.env
+*.env.local
+
+# Build outputs
+bin/
+obj/
+*.pyc
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyo
+*.pyd
 .Python
 build/
 develop-eggs/
@@ -20,46 +26,27 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Virtual environments
+.venv/
 venv/
 ENV/
 env/
-.venv
-
-# Environment Variables
-.env
-*.env
-!.env.example
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+package-lock.json
 
 # Logs
 *.log
 logs/
-
-# OS
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Audio files (if any temp files are created)
-*.wav
-*.mp3
-*.ogg
-*.webm
-
-# Node modules (if you add Node.js later)
-node_modules/
-package-lock.json
-yarn.lock

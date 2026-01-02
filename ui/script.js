@@ -1,31 +1,45 @@
-﻿// Voice Bot - Dual Mode (Voice + Text Chat)
-// Production Architecture (Browser → Backend → Azure)
+// AI Assistant - Dual Mode (Voice + Text)
+// Production Architecture: Browser → Backend → Azure
 
-// UI Elements
-const modeToggle = document.getElementById('modeToggle');
+// ============================================
+// UI ELEMENTS
+// ============================================
+
+// Mode Switcher
+const textModeBtn = document.getElementById('textModeBtn');
+const voiceModeBtn = document.getElementById('voiceModeBtn');
+const modeIndicator = document.getElementById('modeIndicator');
+
+// Containers
 const voiceContainer = document.getElementById('voiceContainer');
 const textContainer = document.getElementById('textContainer');
-const voiceControls = document.getElementById('voiceControls');
-const infoText = document.getElementById('infoText');
 
+// Voice Mode
+const mainOrb = document.getElementById('mainOrb');
 const micBtn = document.getElementById('micBtn');
-const closeBtn = document.getElementById('closeBtn');
-const mainOrb = document.querySelector('.main-orb');
-const glowRings = document.querySelectorAll('.glow-ring');
-const statusText = document.querySelector('.status-text');
-const settingsIcon = document.querySelector('.settings-icon');
+const micBtnLabel = document.getElementById('micBtnLabel');
+const voiceStatus = document.getElementById('voiceStatus');
 
-// Text Chat Elements
+// Text Mode
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
-const chatStatus = document.getElementById('chatStatus');
+const textMicBtn = document.getElementById('textMicBtn');
+const recordingStatus = document.getElementById('recordingStatus');
 
-// Mode Labels
-const modeLabels = document.querySelectorAll('.mode-label');
+// Connection Bar
+const connectionBar = document.getElementById('connectionBar');
 
-// State Variables
-let currentMode = 'voice'; // 'voice' or 'text'
+// Help Modal
+const helpBtn = document.getElementById('helpBtn');
+const helpModal = document.getElementById('helpModal');
+const closeHelpModal = document.getElementById('closeHelpModal');
+
+// ============================================
+// STATE VARIABLES
+// ============================================
+
+let currentMode = 'voice';
 let isListening = false;
 let isConnected = false;
 let ws = null;
@@ -41,7 +55,6 @@ let currentAudioSource = null;
 let scheduledSources = [];
 let activeResponseId = null;
 let completedResponses = new Set();
-let responseTranscripts = new Map();
 let cancelledResponses = new Set();
 let isCancelling = false;
 let lastBargeInTime = 0;
@@ -51,97 +64,198 @@ let bargeInCooldownMs = 1200;
 let conversationHistory = [];
 let isWaitingForResponse = false;
 
-console.log('🎤 Dual-Mode Voice Bot Initialized');
+// Speech-to-Text Variables (for Text Mode)
+let sttRecognition = null;
+let isRecordingSTT = false;
+
+// Text-to-Speech Variables
+let ttsUtterance = null;
+let currentSpeakingBtn = null;
+
+console.log('🎤 AI Voice Assistant Initialized');
 console.log('🔒 Secure: Connecting through backend server');
 
-// Initialize
-updateModeUI();
-
 // ============================================
-// MODE TOGGLE
+// INITIALIZATION
 // ============================================
 
-modeToggle.addEventListener('change', () => {
-    const isVoiceMode = modeToggle.checked;
-    currentMode = isVoiceMode ? 'voice' : 'text';
-    
-    console.log(`🔄 Switching to ${currentMode} mode`);
-    
-    // Update UI
+function init() {
     updateModeUI();
+    setupModeIndicator();
+    updateConnectionStatus(false);
+    setupHelpModal();
+    setupSpeechToText();
+}
+
+function setupModeIndicator() {
+    // Position the indicator on the active button
+    const activeBtn = document.querySelector('.mode-btn.active');
+    if (activeBtn && modeIndicator) {
+        const rect = activeBtn.getBoundingClientRect();
+        const parentRect = activeBtn.parentElement.getBoundingClientRect();
+        modeIndicator.style.left = (activeBtn.offsetLeft) + 'px';
+        modeIndicator.style.width = activeBtn.offsetWidth + 'px';
+    }
+}
+
+function setupHelpModal() {
+    if (helpBtn && helpModal) {
+        helpBtn.addEventListener('click', () => {
+            helpModal.style.display = 'flex';
+        });
+        
+        closeHelpModal?.addEventListener('click', () => {
+            helpModal.style.display = 'none';
+        });
+        
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                helpModal.style.display = 'none';
+            }
+        });
+    }
+}
+
+function setupSpeechToText() {
+    // Check if Speech Recognition is available
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (SpeechRecognition) {
+        sttRecognition = new SpeechRecognition();
+        sttRecognition.continuous = false;
+        sttRecognition.interimResults = true;
+        sttRecognition.lang = 'en-US';
+        
+        sttRecognition.onstart = () => {
+            console.log('🎤 Speech recognition started');
+            isRecordingSTT = true;
+            updateSTTUI(true);
+        };
+        
+        sttRecognition.onresult = (event) => {
+            let finalTranscript = '';
+            let interimTranscript = '';
+            
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            
+            // Update input with transcription
+            if (finalTranscript) {
+                const currentValue = chatInput.value;
+                chatInput.value = currentValue + (currentValue ? ' ' : '') + finalTranscript;
+                chatInput.dispatchEvent(new Event('input'));
+            }
+        };
+        
+        sttRecognition.onerror = (event) => {
+            console.error('❌ Speech recognition error:', event.error);
+            stopSTT();
+        };
+        
+        sttRecognition.onend = () => {
+            console.log('⏹️ Speech recognition ended');
+            stopSTT();
+        };
+    } else {
+        console.warn('⚠️ Speech Recognition not supported');
+        if (textMicBtn) {
+            textMicBtn.style.display = 'none';
+        }
+    }
+}
+
+// ============================================
+// MODE SWITCHING
+// ============================================
+
+textModeBtn.addEventListener('click', () => switchMode('text'));
+voiceModeBtn.addEventListener('click', () => switchMode('voice'));
+
+function switchMode(mode) {
+    if (currentMode === mode) return;
+    
+    currentMode = mode;
+    console.log(`🔄 Switching to ${mode} mode`);
+    
+    // Update button states
+    textModeBtn.classList.toggle('active', mode === 'text');
+    voiceModeBtn.classList.toggle('active', mode === 'voice');
+    
+    // Animate indicator
+    const activeBtn = mode === 'text' ? textModeBtn : voiceModeBtn;
+    modeIndicator.style.left = activeBtn.offsetLeft + 'px';
+    modeIndicator.style.width = activeBtn.offsetWidth + 'px';
+    
+    // Stop any ongoing speech/recording
+    stopTTS();
+    stopSTT();
     
     // Disconnect if connected
     if (isConnected) {
         disconnectSession();
     }
     
-    // Clear text chat if switching from text to voice
-    if (isVoiceMode) {
+    // Update UI
+    updateModeUI();
+    
+    // Clear text chat when switching to voice
+    if (mode === 'voice') {
         conversationHistory = [];
-        const welcomeMsg = chatMessages.querySelector('.welcome-message');
-        if (welcomeMsg) {
-            chatMessages.innerHTML = '';
-            chatMessages.appendChild(welcomeMsg);
-        }
+        resetChatMessages();
     }
-});
+}
 
 function updateModeUI() {
     if (currentMode === 'voice') {
-        // Show voice UI
         voiceContainer.style.display = 'flex';
         textContainer.style.display = 'none';
-        voiceControls.style.display = 'flex';
-        infoText.style.display = 'block';
-        
-        // Update labels
-        modeLabels[0].classList.remove('active');
-        modeLabels[1].classList.add('active');
-        
-        updateStatus('Click microphone to start');
+        updateVoiceStatus('Ready to listen', false);
     } else {
-        // Show text UI
         voiceContainer.style.display = 'none';
         textContainer.style.display = 'flex';
-        voiceControls.style.display = 'none';
-        infoText.style.display = 'none';
-        
-        // Update labels
-        modeLabels[0].classList.add('active');
-        modeLabels[1].classList.remove('active');
-        
-        updateChatStatus('Ready');
         chatInput.focus();
     }
+}
+
+// ============================================
+// CONNECTION STATUS
+// ============================================
+
+function updateConnectionStatus(connected, text = null) {
+    isConnected = connected;
+    connectionBar.classList.toggle('connected', connected);
+    const textEl = connectionBar.querySelector('.connection-text');
+    textEl.textContent = text || (connected ? 'Connected' : 'Disconnected');
 }
 
 // ============================================
 // VOICE MODE FUNCTIONS
 // ============================================
 
-async function connectToAzure() {
+async function connectVoiceMode() {
     try {
-        updateStatus('Connecting...');
-        console.log('🔗 Connecting to backend server (Voice Mode)...');
+        updateVoiceStatus('Connecting...', false);
+        updateConnectionStatus(false, 'Connecting...');
+        console.log('🔗 Connecting to backend (Voice Mode)...');
         
-        let wsUrl = SERVER_CONFIG.websocketUrl;
-        
-        // Add mode parameter
-        wsUrl += '?mode=voice';
+        let wsUrl = SERVER_CONFIG.websocketUrl + '?mode=voice';
         
         if (SERVER_CONFIG.authToken) {
             wsUrl += `&token=${encodeURIComponent(SERVER_CONFIG.authToken)}`;
-            console.log('🔐 Using authentication token');
         }
-        
-        console.log('WebSocket URL:', wsUrl);
         
         ws = new WebSocket(wsUrl);
         
         ws.onopen = () => {
             console.log('✅ Connected to Voice Mode!');
-            isConnected = true;
-            updateStatus('Connected - Ready');
+            updateConnectionStatus(true);
+            updateVoiceStatus('Connected - Ready', false);
             sendSessionUpdate();
         };
         
@@ -149,18 +263,20 @@ async function connectToAzure() {
         
         ws.onerror = (error) => {
             console.error('❌ WebSocket error:', error);
-            updateStatus('Connection error');
+            updateVoiceStatus('Connection error', false);
+            updateConnectionStatus(false, 'Error');
         };
         
         ws.onclose = (event) => {
             console.log('🔌 Disconnected', event.code, event.reason);
-            isConnected = false;
-            updateStatus('Disconnected');
+            updateConnectionStatus(false);
+            updateVoiceStatus('Disconnected', false);
             if (isListening) stopListening();
         };
     } catch (error) {
         console.error('❌ Connection failed:', error);
-        updateStatus('Failed: ' + error.message);
+        updateVoiceStatus('Connection failed', false);
+        updateConnectionStatus(false, 'Failed');
     }
 }
 
@@ -195,17 +311,12 @@ function handleVoiceMessage(data) {
                 
             case 'input_audio_buffer.speech_started':
                 const nowTs = Date.now();
-                if (nowTs - lastBargeInTime < bargeInCooldownMs) {
-                    console.log('🛑 Ignoring speech_started (within cooldown)');
-                    break;
-                }
+                if (nowTs - lastBargeInTime < bargeInCooldownMs) break;
                 const aiSpeaking = scheduledSources.length > 0 || currentAudioSource;
                 if (aiSpeaking || (activeResponseId && !isCancelling)) {
-                    console.log('⚡ INTERRUPTION DETECTED - Cancelling AI response');
+                    console.log('⚡ INTERRUPTION - Cancelling AI');
                     interruptForUserSpeech();
                     lastBargeInTime = nowTs;
-                } else {
-                    console.log('🎤 Speech detected');
                 }
                 break;
                 
@@ -218,8 +329,7 @@ function handleVoiceMessage(data) {
                 break;
                 
             case 'response.created':
-                updateStatus('AI thinking...');
-                console.log('🤖 AI response started');
+                updateVoiceStatus('AI thinking...', true);
                 audioChunks = [];
                 isCancelling = false;
                 activeResponseId = event.response?.id || event.response_id;
@@ -231,19 +341,13 @@ function handleVoiceMessage(data) {
                 break;
                 
             case 'response.audio.delta':
-                const audioData = event.delta;
-                if (audioData) {
-                    if (isCancelling) {
-                        console.log('⚠️ Ignoring audio delta during cancellation');
-                        break;
-                    }
-                    audioChunks.push(audioData);
+                if (event.delta && !isCancelling) {
+                    audioChunks.push(event.delta);
                     processAudioBuffer();
                 }
                 break;
                 
             case 'response.audio.done':
-                console.log('🏁 Audio complete');
                 processAudioBuffer(true);
                 break;
                 
@@ -251,12 +355,9 @@ function handleVoiceMessage(data) {
                 const doneResponseId = event.response?.id || event.response_id;
                 if (doneResponseId) {
                     completedResponses.add(doneResponseId);
-                    if (activeResponseId === doneResponseId) {
-                        activeResponseId = null;
-                    }
+                    if (activeResponseId === doneResponseId) activeResponseId = null;
                 }
-                console.log('✅ Response complete');
-                updateStatus(isListening ? 'Listening...' : 'Ready');
+                updateVoiceStatus(isListening ? 'Listening...' : 'Ready', isListening);
                 processAudioBuffer(true);
                 break;
                 
@@ -269,10 +370,16 @@ function handleVoiceMessage(data) {
     }
 }
 
+function updateVoiceStatus(text, active) {
+    const statusText = voiceStatus.querySelector('.status-text');
+    statusText.textContent = text;
+    voiceStatus.classList.toggle('active', active);
+}
+
 // Microphone button
 micBtn.addEventListener('click', async () => {
     if (!isConnected) {
-        await connectToAzure();
+        await connectVoiceMode();
         return;
     }
     
@@ -284,9 +391,10 @@ micBtn.addEventListener('click', async () => {
 async function startListening() {
     micBtn.classList.add('active');
     mainOrb.classList.add('active');
-    glowRings.forEach(r => r.classList.add('active'));
-    statusText.classList.add('active');
-    updateStatus('Listening...');
+    micBtn.querySelector('.mic-icon').style.display = 'none';
+    micBtn.querySelector('.stop-icon').style.display = 'block';
+    micBtnLabel.textContent = 'Click to stop';
+    updateVoiceStatus('Listening...', true);
     
     try {
         if (!audioContext) {
@@ -313,7 +421,7 @@ async function startListening() {
         console.log('🎤 Recording');
     } catch (error) {
         console.error('❌ Mic error:', error);
-        updateStatus('Microphone denied');
+        updateVoiceStatus('Microphone denied', false);
         stopListening();
     }
 }
@@ -321,22 +429,20 @@ async function startListening() {
 function stopListening() {
     micBtn.classList.remove('active');
     mainOrb.classList.remove('active');
-    glowRings.forEach(r => r.classList.remove('active'));
-    statusText.classList.remove('active');
-    updateStatus('Processing...');
+    micBtn.querySelector('.mic-icon').style.display = 'block';
+    micBtn.querySelector('.stop-icon').style.display = 'none';
+    micBtnLabel.textContent = 'Click to speak';
+    updateVoiceStatus('Processing...', false);
     
     if (audioWorkletNode) audioWorkletNode.disconnect();
     if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
     audioWorkletNode = null;
     mediaStream = null;
+    isListening = false;
 }
 
 function processAudioBuffer(isComplete = false) {
-    if (isProcessingAudio) return;
-    if (isCancelling) {
-        console.log('⚠️ Cancellation in progress - skipping buffer processing');
-        return;
-    }
+    if (isProcessingAudio || isCancelling) return;
     
     const minChunks = isComplete ? 1 : 3;
     if (audioChunks.length < minChunks) return;
@@ -410,73 +516,42 @@ async function schedulePlayback(buffer) {
     const currentTime = audioContext.currentTime;
     const startTime = Math.max(currentTime, nextPlayTime);
     
-    console.log('▶️ Playing', buffer.duration.toFixed(2), 's at', startTime.toFixed(2));
-    
     source.start(startTime);
     currentAudioSource = source;
-    
     scheduledSources.push({ source, startTime, duration: buffer.duration });
     nextPlayTime = startTime + buffer.duration;
     
     source.onended = () => {
-        console.log('✅ Audio chunk ended');
-        if (currentAudioSource === source) {
-            currentAudioSource = null;
-        }
+        if (currentAudioSource === source) currentAudioSource = null;
         scheduledSources = scheduledSources.filter(s => s.source !== source);
-    };
-    
-    source.onerror = (error) => {
-        console.error('❌ Audio playback error:', error);
     };
 }
 
 function interruptForUserSpeech() {
-    try {
-        console.log('🛑 STOPPING ALL AUDIO FOR INTERRUPTION');
-        
-        stopAllScheduledAudio();
-        
-        audioChunks = [];
-        isProcessingAudio = false;
-        nextPlayTime = audioContext ? audioContext.currentTime : 0;
-        
-        if (ws && ws.readyState === WebSocket.OPEN && activeResponseId && !completedResponses.has(activeResponseId)) {
-            console.log('⛔ Sending response.cancel for response', activeResponseId);
-            const cancelMsg = {
-                type: 'response.cancel',
-                response_id: activeResponseId,
-                event_id: ''
-            };
-            ws.send(JSON.stringify(cancelMsg));
-            cancelledResponses.add(activeResponseId);
-            isCancelling = true;
-        }
-        
-        updateStatus('Listening...');
-    } catch (e) {
-        console.error('❌ Error during interruption:', e);
+    stopAllScheduledAudio();
+    audioChunks = [];
+    isProcessingAudio = false;
+    nextPlayTime = audioContext ? audioContext.currentTime : 0;
+    
+    if (ws && ws.readyState === WebSocket.OPEN && activeResponseId && !completedResponses.has(activeResponseId)) {
+        ws.send(JSON.stringify({
+            type: 'response.cancel',
+            response_id: activeResponseId,
+            event_id: ''
+        }));
+        cancelledResponses.add(activeResponseId);
+        isCancelling = true;
     }
+    
+    updateVoiceStatus('Listening...', true);
 }
 
 function stopAllScheduledAudio() {
-    const now = audioContext ? audioContext.currentTime : 0;
-    console.log('🛑 Stopping all scheduled audio sources. Count:', scheduledSources.length, 'currentTime:', now);
-    
     for (const entry of scheduledSources) {
-        try {
-            entry.source.stop();
-        } catch (e) {
-            // Already stopped
-        }
+        try { entry.source.stop(); } catch (e) {}
     }
-    
     scheduledSources = [];
     currentAudioSource = null;
-}
-
-function updateStatus(msg) {
-    statusText.textContent = msg;
 }
 
 // ============================================
@@ -485,44 +560,36 @@ function updateStatus(msg) {
 
 async function connectTextMode() {
     try {
-        updateChatStatus('Connecting...');
-        console.log('🔗 Connecting to backend server (Text Mode)...');
+        updateConnectionStatus(false, 'Connecting...');
+        console.log('🔗 Connecting to backend (Text Mode)...');
         
-        let wsUrl = SERVER_CONFIG.websocketUrl;
-        
-        // Add mode parameter
-        wsUrl += '?mode=text';
+        let wsUrl = SERVER_CONFIG.websocketUrl + '?mode=text';
         
         if (SERVER_CONFIG.authToken) {
             wsUrl += `&token=${encodeURIComponent(SERVER_CONFIG.authToken)}`;
-            console.log('🔐 Using authentication token');
         }
-        
-        console.log('WebSocket URL:', wsUrl);
         
         ws = new WebSocket(wsUrl);
         
         ws.onopen = () => {
             console.log('✅ Connected to Text Mode!');
-            isConnected = true;
-            updateChatStatus('Connected');
+            updateConnectionStatus(true);
         };
         
         ws.onmessage = (event) => handleTextMessage(event.data);
         
         ws.onerror = (error) => {
             console.error('❌ WebSocket error:', error);
-            updateChatStatus('Connection error');
+            updateConnectionStatus(false, 'Error');
         };
         
         ws.onclose = (event) => {
             console.log('🔌 Disconnected', event.code, event.reason);
-            isConnected = false;
-            updateChatStatus('Disconnected');
+            updateConnectionStatus(false);
         };
     } catch (error) {
         console.error('❌ Connection failed:', error);
-        updateChatStatus('Failed');
+        updateConnectionStatus(false, 'Failed');
     }
 }
 
@@ -531,17 +598,13 @@ function handleTextMessage(data) {
         const message = JSON.parse(data);
         
         if (message.type === 'text_response') {
-            console.log('📨 Received text response');
             removeTypingIndicator();
             addMessage('assistant', message.content);
             isWaitingForResponse = false;
-            updateChatStatus('Ready');
         } else if (message.type === 'error') {
-            console.error('❌ Error:', message.error);
             removeTypingIndicator();
             addMessage('system', 'Error: ' + message.error);
             isWaitingForResponse = false;
-            updateChatStatus('Error');
         }
     } catch (error) {
         console.error('❌ Parse error:', error);
@@ -550,11 +613,8 @@ function handleTextMessage(data) {
 
 // Text input handlers
 chatInput.addEventListener('input', () => {
-    // Auto-resize textarea
     chatInput.style.height = 'auto';
     chatInput.style.height = chatInput.scrollHeight + 'px';
-    
-    // Enable/disable send button
     sendBtn.disabled = !chatInput.value.trim() || isWaitingForResponse;
 });
 
@@ -565,61 +625,94 @@ chatInput.addEventListener('keydown', (e) => {
     }
 });
 
-sendBtn.addEventListener('click', () => {
-    sendTextMessage();
-});
+sendBtn.addEventListener('click', sendTextMessage);
+
+// Text mode microphone button for Speech-to-Text
+if (textMicBtn) {
+    textMicBtn.addEventListener('click', toggleSTT);
+}
+
+function toggleSTT() {
+    if (isRecordingSTT) {
+        stopSTT();
+    } else {
+        startSTT();
+    }
+}
+
+function startSTT() {
+    if (!sttRecognition) {
+        alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+        return;
+    }
+    
+    try {
+        sttRecognition.start();
+    } catch (error) {
+        console.error('❌ Failed to start speech recognition:', error);
+    }
+}
+
+function stopSTT() {
+    if (sttRecognition && isRecordingSTT) {
+        try {
+            sttRecognition.stop();
+        } catch (error) {
+            // Ignore errors when stopping
+        }
+    }
+    isRecordingSTT = false;
+    updateSTTUI(false);
+}
+
+function updateSTTUI(recording) {
+    if (textMicBtn) {
+        textMicBtn.classList.toggle('recording', recording);
+        const micIcon = textMicBtn.querySelector('.mic-icon');
+        const recordingIcon = textMicBtn.querySelector('.recording-icon');
+        if (micIcon) micIcon.style.display = recording ? 'none' : 'block';
+        if (recordingIcon) recordingIcon.style.display = recording ? 'block' : 'none';
+    }
+    if (recordingStatus) {
+        recordingStatus.style.display = recording ? 'flex' : 'none';
+    }
+}
 
 async function sendTextMessage() {
     const message = chatInput.value.trim();
     if (!message || isWaitingForResponse) return;
     
-    // Connect if not connected
     if (!isConnected) {
         await connectTextMode();
-        // Wait a bit for connection
         await new Promise(resolve => setTimeout(resolve, 500));
-        if (!isConnected) {
-            updateChatStatus('Connection failed');
-            return;
-        }
+        if (!isConnected) return;
     }
     
-    // Clear input
     chatInput.value = '';
     chatInput.style.height = 'auto';
     sendBtn.disabled = true;
     
-    // Add user message to chat
     addMessage('user', message);
-    
-    // Show typing indicator
     showTypingIndicator();
     
-    // Send to backend
     isWaitingForResponse = true;
-    updateChatStatus('Sending...');
     
     try {
         ws.send(JSON.stringify({
             type: 'text_message',
             content: message
         }));
-        console.log('📤 Sent text message:', message);
-        updateChatStatus('Waiting for response...');
     } catch (error) {
         console.error('❌ Send error:', error);
         removeTypingIndicator();
         isWaitingForResponse = false;
-        updateChatStatus('Send failed');
     }
 }
 
 function addMessage(role, content) {
-    // Remove welcome message if exists
-    const welcomeMsg = chatMessages.querySelector('.welcome-message');
-    if (welcomeMsg) {
-        welcomeMsg.remove();
-    }
+    // Remove empty state if exists
+    const emptyState = chatMessages.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
     
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
@@ -635,25 +728,121 @@ function addMessage(role, content) {
     bubble.className = 'message-bubble';
     bubble.textContent = content;
     
+    const footer = document.createElement('div');
+    footer.className = 'message-footer';
+    
     const time = document.createElement('div');
     time.className = 'message-time';
     time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
-    contentDiv.appendChild(bubble);
-    contentDiv.appendChild(time);
+    footer.appendChild(time);
     
+    // Add speak button for assistant messages (Text-to-Speech)
+    if (role === 'assistant') {
+        const actions = document.createElement('div');
+        actions.className = 'message-actions';
+        
+        const speakBtn = document.createElement('button');
+        speakBtn.className = 'speak-btn';
+        speakBtn.title = 'Read aloud (Text-to-Speech)';
+        speakBtn.innerHTML = `
+            <svg class="speaker-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            <svg class="stop-speaker-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+            </svg>
+        `;
+        speakBtn.onclick = () => toggleTTS(content, speakBtn);
+        
+        actions.appendChild(speakBtn);
+        footer.appendChild(actions);
+    }
+    
+    contentDiv.appendChild(bubble);
+    contentDiv.appendChild(footer);
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(contentDiv);
     
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
-    // Store in history
     conversationHistory.push({ role, content });
 }
 
+// Text-to-Speech functionality
+function toggleTTS(text, btn) {
+    // If currently speaking this message, stop it
+    if (currentSpeakingBtn === btn) {
+        stopTTS();
+        return;
+    }
+    
+    // Stop any current speech
+    stopTTS();
+    
+    // Start new speech
+    if ('speechSynthesis' in window) {
+        ttsUtterance = new SpeechSynthesisUtterance(text);
+        ttsUtterance.rate = 1.0;
+        ttsUtterance.pitch = 1.0;
+        ttsUtterance.volume = 1.0;
+        
+        // Get available voices and prefer a natural voice
+        const voices = speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => 
+            v.name.includes('Google') || 
+            v.name.includes('Microsoft') || 
+            v.name.includes('Natural')
+        ) || voices[0];
+        
+        if (preferredVoice) {
+            ttsUtterance.voice = preferredVoice;
+        }
+        
+        ttsUtterance.onstart = () => {
+            updateTTSButton(btn, true);
+            currentSpeakingBtn = btn;
+        };
+        
+        ttsUtterance.onend = () => {
+            updateTTSButton(btn, false);
+            currentSpeakingBtn = null;
+        };
+        
+        ttsUtterance.onerror = () => {
+            updateTTSButton(btn, false);
+            currentSpeakingBtn = null;
+        };
+        
+        speechSynthesis.speak(ttsUtterance);
+    } else {
+        alert('Text-to-Speech is not supported in your browser.');
+    }
+}
+
+function stopTTS() {
+    if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+    }
+    if (currentSpeakingBtn) {
+        updateTTSButton(currentSpeakingBtn, false);
+        currentSpeakingBtn = null;
+    }
+}
+
+function updateTTSButton(btn, speaking) {
+    btn.classList.toggle('speaking', speaking);
+    const speakerIcon = btn.querySelector('.speaker-icon');
+    const stopIcon = btn.querySelector('.stop-speaker-icon');
+    if (speakerIcon) speakerIcon.style.display = speaking ? 'none' : 'block';
+    if (stopIcon) stopIcon.style.display = speaking ? 'block' : 'none';
+}
+
 function showTypingIndicator() {
-    removeTypingIndicator(); // Remove if exists
+    removeTypingIndicator();
     
     const typingDiv = document.createElement('div');
     typingDiv.className = 'typing-indicator';
@@ -674,70 +863,43 @@ function showTypingIndicator() {
     
     typingDiv.appendChild(avatar);
     typingDiv.appendChild(dotsDiv);
-    
     chatMessages.appendChild(typingDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 function removeTypingIndicator() {
     const indicator = document.getElementById('typingIndicator');
-    if (indicator) {
-        indicator.remove();
-    }
+    if (indicator) indicator.remove();
 }
 
-function updateChatStatus(status) {
-    chatStatus.textContent = status;
+function resetChatMessages() {
+    chatMessages.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+            </div>
+            <h3>Start a conversation</h3>
+            <p>Type a message or click the microphone to speak</p>
+        </div>
+    `;
+    // Stop any ongoing TTS when resetting
+    stopTTS();
 }
 
 // ============================================
 // COMMON FUNCTIONS
 // ============================================
 
-// Close button - works for both modes
-closeBtn.addEventListener('click', () => {
-    console.log('🔴 Stop button pressed - Ending session');
-    
-    if (currentMode === 'voice') {
-        if (isListening) stopListening();
-        stopAllScheduledAudio();
-        audioChunks = [];
-        isProcessingAudio = false;
-        nextPlayTime = 0;
-        
-        if (audioWorkletNode) {
-            audioWorkletNode.disconnect();
-            audioWorkletNode = null;
-        }
-        
-        if (mediaStream) {
-            mediaStream.getTracks().forEach(t => t.stop());
-            mediaStream = null;
-        }
-        
-        if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-        }
-        
-        updateStatus('Session ended');
-    } else {
-        updateChatStatus('Session ended');
-    }
-    
-    disconnectSession();
-});
-
 function disconnectSession() {
     if (ws && ws.readyState === WebSocket.OPEN) {
         if (currentMode === 'voice' && activeResponseId) {
-            console.log('⛔ Cancelling active response before closing');
-            const cancelMsg = {
+            ws.send(JSON.stringify({
                 type: 'response.cancel',
                 response_id: activeResponseId,
                 event_id: ''
-            };
-            ws.send(JSON.stringify(cancelMsg));
+            }));
         }
         ws.close();
     }
@@ -746,20 +908,18 @@ function disconnectSession() {
     isConnected = false;
     activeResponseId = null;
     completedResponses.clear();
-    responseTranscripts.clear();
     cancelledResponses.clear();
     isCancelling = false;
     isWaitingForResponse = false;
     
-    console.log('✅ Session disconnected');
+    // Stop any ongoing speech
+    stopTTS();
+    stopSTT();
+    
+    updateConnectionStatus(false);
 }
 
-// Settings
-settingsIcon.addEventListener('click', () => {
-    alert(`Mode: ${currentMode}\nConnected: ${isConnected}\nWebSocket: ${SERVER_CONFIG.websocketUrl}`);
-});
-
-// Utils
+// Utility functions
 function arrayBufferToBase64(buffer) {
     const bytes = new Uint8Array(buffer);
     let binary = '';
@@ -782,7 +942,16 @@ document.addEventListener('keydown', (e) => {
             micBtn.click();
         }
     }
-    if (e.code === 'Escape') closeBtn.click();
 });
 
-console.log('✅ Ready - Toggle mode and start chatting!');
+// Initialize on load
+init();
+
+// Load voices for TTS (needed for some browsers)
+if ('speechSynthesis' in window) {
+    speechSynthesis.onvoiceschanged = () => {
+        speechSynthesis.getVoices();
+    };
+}
+
+console.log('✅ Ready - Select mode and start chatting!');

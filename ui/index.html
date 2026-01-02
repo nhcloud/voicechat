@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="logo-content">
+                    <span class="logo-text">AI Voice Assistant</span>
+                    <span class="logo-subtitle">Powered by Azure OpenAI</span>
+                </div>
+            </div>
+
+            <!-- Mode Switcher -->
+            <div class="mode-switcher-wrapper">
+                <div class="mode-switcher">
+                    <button class="mode-btn" id="textModeBtn" data-mode="text">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        <span>Text Chat</span>
+                    </button>
+                    <button class="mode-btn active" id="voiceModeBtn" data-mode="voice">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                        <span>Realtime Voice</span>
+                    </button>
+                    <div class="mode-indicator" id="modeIndicator"></div>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <button class="header-btn" id="helpBtn" title="Help">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Voice Mode -->
+            <div class="voice-mode" id="voiceContainer">
+                <!-- Mode Description -->
+                <div class="mode-description">
+                    <div class="mode-badge realtime">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                        <span>Realtime Voice</span>
+                    </div>
+                    <p class="mode-desc-text">Full duplex conversation with instant speech-to-speech. Talk naturally and interrupt anytime — AI responds in real-time.</p>
+                </div>
+
+                <div class="voice-visualization">
+                    <div class="orb-container">
+                        <div class="orb-ring ring-outer"></div>
+                        <div class="orb-ring ring-middle"></div>
+                        <div class="orb-ring ring-inner"></div>
+                        <div class="orb" id="mainOrb">
+                            <div class="orb-glow"></div>
+                            <div class="orb-core"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="voice-status" id="voiceStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Ready to listen</span>
+                </div>
+
+                <div class="voice-controls">
+                    <button class="voice-btn" id="micBtn">
+                        <svg class="mic-icon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                        </svg>
+                        <svg class="stop-icon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+                            <rect x="6" y="6" width="12" height="12" rx="2"/>
+                        </svg>
+                    </button>
+                    <span class="voice-btn-label" id="micBtnLabel">Click to speak</span>
+                </div>
+
+                <div class="voice-hint">
+                    <span>💡 Tip: Press <kbd>Space</kbd> to toggle microphone</span>
+                </div>
+            </div>
+
+            <!-- Text Mode -->
+            <div class="text-mode" id="textContainer" style="display: none;">
+                <!-- Mode Description -->
+                <div class="text-mode-header">
+                    <div class="mode-description">
+                        <div class="mode-badge text">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <span>Text Chat with Voice</span>
+                        </div>
+                        <p class="mode-desc-text">Type messages or use the microphone for speech-to-text. Click the speaker icon to hear AI responses read aloud.</p>
+                    </div>
+                    <div class="mode-features">
+                        <div class="feature-item">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            </svg>
+                            <span>Voice → Text</span>
+                        </div>
+                        <div class="feature-item">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                            </svg>
+                            <span>Text → Voice</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                        </div>
+                        <h3>Start a conversation</h3>
+                        <p>Type a message or click the microphone to speak</p>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <div class="input-wrapper">
+                        <button class="input-mic-btn" id="textMicBtn" title="Click to speak (Speech-to-Text)">
+                            <svg class="mic-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                <line x1="12" y1="19" x2="12" y2="23"/>
+                                <line x1="8" y1="23" x2="16" y2="23"/>
+                            </svg>
+                            <svg class="recording-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+                                <circle cx="12" cy="12" r="6"/>
+                            </svg>
+                        </button>
+                        <textarea 
+                            id="chatInput" 
+                            placeholder="Type your message or click 🎤 to speak..."
+                            rows="1"
+                        ></textarea>
+                        <button class="send-btn" id="sendBtn" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="input-hints">
+                        <span class="input-hint">Press Enter to send • Shift+Enter for new line</span>
+                        <span class="recording-status" id="recordingStatus" style="display:none">
+                            <span class="recording-dot"></span>
+                            Recording...
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Connection Status Bar -->
+        <footer class="footer">
+            <div class="connection-bar" id="connectionBar">
+                <span class="connection-dot"></span>
+                <span class="connection-text">Disconnected</span>
+            </div>
+            <div class="footer-info">
+                <span class="footer-divider">•</span>
+                <span class="latency-info" id="latencyInfo"></span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal" style="display:none">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>How It Works</h2>
+                <button class="modal-close" id="closeHelpModal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-content">
+                <div class="help-section">
+                    <div class="help-mode">
+                        <div class="help-mode-header">
+                            <div class="mode-badge realtime">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                                </svg>
+                                <span>Realtime Voice</span>
+                            </div>
+                        </div>
+                        <ul class="help-list">
+                            <li>🎤 <strong>Full duplex:</strong> Speak and listen simultaneously</li>
+                            <li>⚡ <strong>Instant response:</strong> AI responds while you speak</li>
+                            <li>🔄 <strong>Interrupt anytime:</strong> Just start talking to cut in</li>
+                            <li>🧠 <strong>Natural flow:</strong> Like a real conversation</li>
+                        </ul>
+                    </div>
+                    <div class="help-mode">
+                        <div class="help-mode-header">
+                            <div class="mode-badge text">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                </svg>
+                                <span>Text Chat with Voice</span>
+                            </div>
+                        </div>
+                        <ul class="help-list">
+                            <li>⌨️ <strong>Type messages:</strong> Traditional text chat</li>
+                            <li>🎤 <strong>Voice to text:</strong> Click mic to transcribe speech</li>
+                            <li>🔊 <strong>Text to voice:</strong> Click speaker to hear responses</li>
+                            <li>📝 <strong>Edit before sending:</strong> Review transcribed text</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
