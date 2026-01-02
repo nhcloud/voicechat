@@ -12,8 +12,11 @@ The Python implementation of the Voice Chat backend using asyncio and websockets
 ## Quick Start
 
 ```bash
-cd backend
+# From voicechat root folder
 pip install -r requirements.txt
+
+# Then start the backend
+cd python/backend
 python server.py
 ```
 
@@ -24,9 +27,10 @@ The backend will start on **http://localhost:8001**.
 ```
 python/
 └── backend/
-    ├── server.py             # WebSocket server
-    └── requirements.txt      # Python dependencies
+    └── server.py             # WebSocket server
 ```
+
+> **Note:** Dependencies are in the root `requirements.txt` file.
 
 ## Dependencies
 
@@ -36,9 +40,9 @@ python/
 | `aiohttp` | Async HTTP client for Chat API |
 | `python-dotenv` | Load `.env` file |
 
-Install with:
+Install from root folder:
 ```bash
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 ```
 
 ## How It Works

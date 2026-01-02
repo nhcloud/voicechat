@@ -86,7 +86,7 @@ Choose **one** backend to run:
 
 | Backend | Command |
 |---------|---------|
-| Python | `cd python/backend && pip install -r requirements.txt && python server.py` |
+| Python | `pip install -r requirements.txt && cd python/backend && python server.py` |
 | .NET | `cd dotnet/backend && dotnet run` |
 
 See [Python README](python/README.md) or [.NET README](dotnet/README.md) for detailed setup.
