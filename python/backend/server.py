@@ -15,15 +15,33 @@ import json
 import os
 import logging
 import uuid
-import aiohttp
+import httpx
 from datetime import datetime, timedelta
 from typing import Dict, Set, Optional
 from dotenv import load_dotenv
 from collections import defaultdict
 from urllib.parse import parse_qs, urlparse
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from root voicechat folder
+# Try multiple locations for .env file
+env_paths = [
+    Path(__file__).parent.parent.parent / '.env',  # voicechat/.env
+    Path(__file__).parent / '.env',  # backend/.env (fallback)
+    Path.cwd().parent / '.env',  # parent of cwd
+]
+
+env_loaded = False
+for env_path in env_paths:
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"✓ Loaded .env from: {env_path}")
+        env_loaded = True
+        break
+
+if not env_loaded:
+    load_dotenv()  # Try default locations
+
 
 # Configure logging
 logging.basicConfig(
@@ -88,14 +106,14 @@ def build_azure_realtime_url():
 
 
 async def call_azure_chat_api(message: str) -> str:
-    """Call Azure Chat Completion API (REST)"""
+    """Call Azure Chat Completion API (REST) using httpx"""
     url = f"{AZURE_ENDPOINT}/openai/deployments/{AZURE_CHAT_DEPLOYMENT}/chat/completions?api-version={API_VERSION_CHAT}"
-    
+
     headers = {
         "api-key": AZURE_API_KEY,
         "Content-Type": "application/json"
     }
-    
+
     data = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant. Respond naturally and concisely."},
@@ -104,18 +122,18 @@ async def call_azure_chat_api(message: str) -> str:
         "max_tokens": 800,
         "temperature": 0.7
     }
-    
+
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=data, timeout=aiohttp.ClientTimeout(total=30)) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return result['choices'][0]['message']['content']
-                else:
-                    error_text = await response.text()
-                    logger.error(f"Azure Chat API error: {response.status} - {error_text}")
-                    return f"Error: Failed to get response (status {response.status})"
-    except asyncio.TimeoutError:
+        timeout = httpx.Timeout(30.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(url, headers=headers, json=data)
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            else:
+                logger.error(f"Azure Chat API error: {response.status_code} - {response.text}")
+                return f"Error: Failed to get response (status {response.status_code})"
+    except httpx.ReadTimeout:
         logger.error("Azure Chat API timeout")
         return "Error: Request timed out"
     except Exception as e:
