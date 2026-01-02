@@ -24,9 +24,16 @@ const voiceStatus = document.getElementById('voiceStatus');
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
+const textMicBtn = document.getElementById('textMicBtn');
+const recordingStatus = document.getElementById('recordingStatus');
 
 // Connection Bar
 const connectionBar = document.getElementById('connectionBar');
+
+// Help Modal
+const helpBtn = document.getElementById('helpBtn');
+const helpModal = document.getElementById('helpModal');
+const closeHelpModal = document.getElementById('closeHelpModal');
 
 // ============================================
 // STATE VARIABLES
@@ -57,7 +64,15 @@ let bargeInCooldownMs = 1200;
 let conversationHistory = [];
 let isWaitingForResponse = false;
 
-console.log('🎤 AI Assistant Initialized');
+// Speech-to-Text Variables (for Text Mode)
+let sttRecognition = null;
+let isRecordingSTT = false;
+
+// Text-to-Speech Variables
+let ttsUtterance = null;
+let currentSpeakingBtn = null;
+
+console.log('🎤 AI Voice Assistant Initialized');
 console.log('🔒 Secure: Connecting through backend server');
 
 // ============================================
@@ -68,6 +83,8 @@ function init() {
     updateModeUI();
     setupModeIndicator();
     updateConnectionStatus(false);
+    setupHelpModal();
+    setupSpeechToText();
 }
 
 function setupModeIndicator() {
@@ -78,6 +95,78 @@ function setupModeIndicator() {
         const parentRect = activeBtn.parentElement.getBoundingClientRect();
         modeIndicator.style.left = (activeBtn.offsetLeft) + 'px';
         modeIndicator.style.width = activeBtn.offsetWidth + 'px';
+    }
+}
+
+function setupHelpModal() {
+    if (helpBtn && helpModal) {
+        helpBtn.addEventListener('click', () => {
+            helpModal.style.display = 'flex';
+        });
+        
+        closeHelpModal?.addEventListener('click', () => {
+            helpModal.style.display = 'none';
+        });
+        
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                helpModal.style.display = 'none';
+            }
+        });
+    }
+}
+
+function setupSpeechToText() {
+    // Check if Speech Recognition is available
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (SpeechRecognition) {
+        sttRecognition = new SpeechRecognition();
+        sttRecognition.continuous = false;
+        sttRecognition.interimResults = true;
+        sttRecognition.lang = 'en-US';
+        
+        sttRecognition.onstart = () => {
+            console.log('🎤 Speech recognition started');
+            isRecordingSTT = true;
+            updateSTTUI(true);
+        };
+        
+        sttRecognition.onresult = (event) => {
+            let finalTranscript = '';
+            let interimTranscript = '';
+            
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            
+            // Update input with transcription
+            if (finalTranscript) {
+                const currentValue = chatInput.value;
+                chatInput.value = currentValue + (currentValue ? ' ' : '') + finalTranscript;
+                chatInput.dispatchEvent(new Event('input'));
+            }
+        };
+        
+        sttRecognition.onerror = (event) => {
+            console.error('❌ Speech recognition error:', event.error);
+            stopSTT();
+        };
+        
+        sttRecognition.onend = () => {
+            console.log('⏹️ Speech recognition ended');
+            stopSTT();
+        };
+    } else {
+        console.warn('⚠️ Speech Recognition not supported');
+        if (textMicBtn) {
+            textMicBtn.style.display = 'none';
+        }
     }
 }
 
@@ -102,6 +191,10 @@ function switchMode(mode) {
     const activeBtn = mode === 'text' ? textModeBtn : voiceModeBtn;
     modeIndicator.style.left = activeBtn.offsetLeft + 'px';
     modeIndicator.style.width = activeBtn.offsetWidth + 'px';
+    
+    // Stop any ongoing speech/recording
+    stopTTS();
+    stopSTT();
     
     // Disconnect if connected
     if (isConnected) {
@@ -534,6 +627,57 @@ chatInput.addEventListener('keydown', (e) => {
 
 sendBtn.addEventListener('click', sendTextMessage);
 
+// Text mode microphone button for Speech-to-Text
+if (textMicBtn) {
+    textMicBtn.addEventListener('click', toggleSTT);
+}
+
+function toggleSTT() {
+    if (isRecordingSTT) {
+        stopSTT();
+    } else {
+        startSTT();
+    }
+}
+
+function startSTT() {
+    if (!sttRecognition) {
+        alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+        return;
+    }
+    
+    try {
+        sttRecognition.start();
+    } catch (error) {
+        console.error('❌ Failed to start speech recognition:', error);
+    }
+}
+
+function stopSTT() {
+    if (sttRecognition && isRecordingSTT) {
+        try {
+            sttRecognition.stop();
+        } catch (error) {
+            // Ignore errors when stopping
+        }
+    }
+    isRecordingSTT = false;
+    updateSTTUI(false);
+}
+
+function updateSTTUI(recording) {
+    if (textMicBtn) {
+        textMicBtn.classList.toggle('recording', recording);
+        const micIcon = textMicBtn.querySelector('.mic-icon');
+        const recordingIcon = textMicBtn.querySelector('.recording-icon');
+        if (micIcon) micIcon.style.display = recording ? 'none' : 'block';
+        if (recordingIcon) recordingIcon.style.display = recording ? 'block' : 'none';
+    }
+    if (recordingStatus) {
+        recordingStatus.style.display = recording ? 'flex' : 'none';
+    }
+}
+
 async function sendTextMessage() {
     const message = chatInput.value.trim();
     if (!message || isWaitingForResponse) return;
@@ -584,12 +728,41 @@ function addMessage(role, content) {
     bubble.className = 'message-bubble';
     bubble.textContent = content;
     
+    const footer = document.createElement('div');
+    footer.className = 'message-footer';
+    
     const time = document.createElement('div');
     time.className = 'message-time';
     time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
+    footer.appendChild(time);
+    
+    // Add speak button for assistant messages (Text-to-Speech)
+    if (role === 'assistant') {
+        const actions = document.createElement('div');
+        actions.className = 'message-actions';
+        
+        const speakBtn = document.createElement('button');
+        speakBtn.className = 'speak-btn';
+        speakBtn.title = 'Read aloud (Text-to-Speech)';
+        speakBtn.innerHTML = `
+            <svg class="speaker-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            <svg class="stop-speaker-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+            </svg>
+        `;
+        speakBtn.onclick = () => toggleTTS(content, speakBtn);
+        
+        actions.appendChild(speakBtn);
+        footer.appendChild(actions);
+    }
+    
     contentDiv.appendChild(bubble);
-    contentDiv.appendChild(time);
+    contentDiv.appendChild(footer);
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(contentDiv);
     
@@ -597,6 +770,75 @@ function addMessage(role, content) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
     conversationHistory.push({ role, content });
+}
+
+// Text-to-Speech functionality
+function toggleTTS(text, btn) {
+    // If currently speaking this message, stop it
+    if (currentSpeakingBtn === btn) {
+        stopTTS();
+        return;
+    }
+    
+    // Stop any current speech
+    stopTTS();
+    
+    // Start new speech
+    if ('speechSynthesis' in window) {
+        ttsUtterance = new SpeechSynthesisUtterance(text);
+        ttsUtterance.rate = 1.0;
+        ttsUtterance.pitch = 1.0;
+        ttsUtterance.volume = 1.0;
+        
+        // Get available voices and prefer a natural voice
+        const voices = speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => 
+            v.name.includes('Google') || 
+            v.name.includes('Microsoft') || 
+            v.name.includes('Natural')
+        ) || voices[0];
+        
+        if (preferredVoice) {
+            ttsUtterance.voice = preferredVoice;
+        }
+        
+        ttsUtterance.onstart = () => {
+            updateTTSButton(btn, true);
+            currentSpeakingBtn = btn;
+        };
+        
+        ttsUtterance.onend = () => {
+            updateTTSButton(btn, false);
+            currentSpeakingBtn = null;
+        };
+        
+        ttsUtterance.onerror = () => {
+            updateTTSButton(btn, false);
+            currentSpeakingBtn = null;
+        };
+        
+        speechSynthesis.speak(ttsUtterance);
+    } else {
+        alert('Text-to-Speech is not supported in your browser.');
+    }
+}
+
+function stopTTS() {
+    if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+    }
+    if (currentSpeakingBtn) {
+        updateTTSButton(currentSpeakingBtn, false);
+        currentSpeakingBtn = null;
+    }
+}
+
+function updateTTSButton(btn, speaking) {
+    btn.classList.toggle('speaking', speaking);
+    const speakerIcon = btn.querySelector('.speaker-icon');
+    const stopIcon = btn.querySelector('.stop-speaker-icon');
+    if (speakerIcon) speakerIcon.style.display = speaking ? 'none' : 'block';
+    if (stopIcon) stopIcon.style.display = speaking ? 'block' : 'none';
 }
 
 function showTypingIndicator() {
@@ -639,9 +881,11 @@ function resetChatMessages() {
                 </svg>
             </div>
             <h3>Start a conversation</h3>
-            <p>Type a message below to begin chatting with the AI assistant</p>
+            <p>Type a message or click the microphone to speak</p>
         </div>
     `;
+    // Stop any ongoing TTS when resetting
+    stopTTS();
 }
 
 // ============================================
@@ -667,6 +911,10 @@ function disconnectSession() {
     cancelledResponses.clear();
     isCancelling = false;
     isWaitingForResponse = false;
+    
+    // Stop any ongoing speech
+    stopTTS();
+    stopSTT();
     
     updateConnectionStatus(false);
 }
@@ -698,4 +946,12 @@ document.addEventListener('keydown', (e) => {
 
 // Initialize on load
 init();
+
+// Load voices for TTS (needed for some browsers)
+if ('speechSynthesis' in window) {
+    speechSynthesis.onvoiceschanged = () => {
+        speechSynthesis.getVoices();
+    };
+}
+
 console.log('✅ Ready - Select mode and start chatting!');
