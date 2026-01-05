@@ -10,13 +10,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Try multiple paths to find the .env file
 var envPaths = new[]
 {
-    // From current working directory (when running from dotnet/backend)
+    // From dotnet/backend to voicechat root (../../.env)
     Path.Combine(Directory.GetCurrentDirectory(), "..", "..", ".env"),
-    // Direct path to voicechat root
-    "/Users/udaiapparamachandran/source/nhcloud/voicechat/.env",
-    // From AppContext base directory (when running built executable)
-    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".env"),
-    // Parent of current directory
+    // From dotnet/backend/bin/Debug/net10.0 to voicechat root
+    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".env"),
+    // Sibling to dotnet folder
     Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"),
 };
 
@@ -189,13 +187,13 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
 Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
 Console.WriteLine("🚀 Real-Time Voice Chat Backend (.NET)");
 Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
-Console.WriteLine($"Server: http://localhost:5001");
-Console.WriteLine($"WebSocket: ws://localhost:5001/ws");
+Console.WriteLine($"Server: http://localhost:8001");
+Console.WriteLine($"WebSocket: ws://localhost:8001/ws");
 Console.WriteLine($"Azure Endpoint: {(string.IsNullOrEmpty(azureSettings.Endpoint) ? "NOT SET" : azureSettings.Endpoint)}");
 Console.WriteLine($"Voice Mode: {azureSettings.RealtimeDeployment} (Realtime API)");
 Console.WriteLine($"Text Mode: {azureSettings.ChatDeployment} (Chat Completion API)");
 Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
-Console.WriteLine("💡 Start the frontend server separately on port 5000");
+Console.WriteLine("💡 Start the frontend server separately on port 8000");
 Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
 
 app.Run();

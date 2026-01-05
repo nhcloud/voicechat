@@ -62,18 +62,36 @@ public class AzureChatService
         {
             while (clientWs.State == WebSocketState.Open)
             {
-                var result = await clientWs.ReceiveAsync(
-                    new ArraySegment<byte>(buffer), 
-                    CancellationToken.None);
+                // Accumulate message fragments
+                var messageBuilder = new StringBuilder();
+                WebSocketReceiveResult result;
+                
+                do
+                {
+                    result = await clientWs.ReceiveAsync(
+                        new ArraySegment<byte>(buffer), 
+                        CancellationToken.None);
+
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        break;
+                    }
+
+                    if (result.MessageType == WebSocketMessageType.Text)
+                    {
+                        messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                    }
+                } while (!result.EndOfMessage);
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     break;
                 }
 
-                if (result.MessageType == WebSocketMessageType.Text)
+                if (result.MessageType == WebSocketMessageType.Text && messageBuilder.Length > 0)
                 {
-                    var messageJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    var messageJson = messageBuilder.ToString();
+                    _logger.LogDebug("[{SessionId}] Received message: {Message}", sessionId[..8], messageJson);
                     await ProcessTextMessage(clientWs, sessionId, messageJson, conversationHistory);
                 }
             }
@@ -97,21 +115,29 @@ public class AzureChatService
     {
         try
         {
-            var request = JsonSerializer.Deserialize<TextMessageRequest>(messageJson);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var request = JsonSerializer.Deserialize<TextMessageRequest>(messageJson, options);
             
-            if (request?.Type != "text.message" || string.IsNullOrEmpty(request.Text))
+            // Support both 'text_message' (frontend) and 'text.message' formats
+            // Support both 'content' (frontend) and 'Text' fields
+            var messageType = request?.Type;
+            var messageText = request?.Content ?? request?.Text;
+            
+            _logger.LogDebug("[{SessionId}] Parsed message - Type: {Type}, Content: {Content}", 
+                sessionId[..8], messageType ?? "null", messageText ?? "null");
+            
+            if ((messageType != "text_message" && messageType != "text.message") || string.IsNullOrEmpty(messageText))
             {
+                _logger.LogWarning("[{SessionId}] Invalid message type or empty content. Type: {Type}", 
+                    sessionId[..8], messageType ?? "null");
                 return;
             }
 
-            _logger.LogInformation("[{SessionId}] User: {Message}", sessionId[..8], request.Text[..Math.Min(50, request.Text.Length)]);
+            _logger.LogInformation("[{SessionId}] User: {Message}", sessionId[..8], messageText[..Math.Min(50, messageText.Length)]);
             _sessionManager.UpdateActivity(sessionId);
 
             // Add user message to history
-            conversationHistory.Add(new UserChatMessage(request.Text));
-
-            // Send thinking notification
-            await SendMessage(clientWs, new { type = "response.thinking" });
+            conversationHistory.Add(new UserChatMessage(messageText));
 
             // Get response from Azure OpenAI
             var chatClient = _client!.GetChatClient(_settings.ChatDeployment);
@@ -126,13 +152,6 @@ public class AzureChatService
                     if (!string.IsNullOrEmpty(contentPart.Text))
                     {
                         responseBuilder.Append(contentPart.Text);
-                        
-                        // Send delta to client
-                        await SendMessage(clientWs, new 
-                        { 
-                            type = "response.text.delta", 
-                            delta = contentPart.Text 
-                        });
                     }
                 }
             }
@@ -142,11 +161,11 @@ public class AzureChatService
             // Add assistant response to history
             conversationHistory.Add(new AssistantChatMessage(fullResponse));
             
-            // Send completion notification
+            // Send response in the format expected by the frontend
             await SendMessage(clientWs, new 
             { 
-                type = "response.done",
-                response = fullResponse
+                type = "text_response",
+                content = fullResponse
             });
 
             _logger.LogInformation("[{SessionId}] Assistant: {Response}", 
@@ -154,7 +173,7 @@ public class AzureChatService
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "Invalid JSON message in session {SessionId}", sessionId[..8]);
+            _logger.LogWarning(ex, "Invalid JSON message in session {SessionId}: {Message}", sessionId[..8], messageJson);
         }
         catch (Exception ex)
         {
@@ -181,5 +200,6 @@ public class AzureChatService
     {
         public string? Type { get; set; }
         public string? Text { get; set; }
+        public string? Content { get; set; }
     }
 }
