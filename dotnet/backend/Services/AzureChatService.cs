@@ -3,36 +3,50 @@ using System.Text;
 using System.Text.Json;
 using Azure;
 using Azure.AI.OpenAI;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using OpenAI.Chat;
+
+// Disambiguate ChatMessage - use Microsoft.Extensions.AI version for the agent
+using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace VoiceChat.Backend.Services;
 
 /// <summary>
-/// Handles text chat sessions using Azure OpenAI Chat Completion API
+/// Handles text chat sessions using Microsoft.Agents.AI framework with Azure OpenAI
 /// </summary>
 public class AzureChatService
 {
-    private readonly AzureOpenAISettings _settings;
     private readonly SessionManager _sessionManager;
     private readonly ILogger<AzureChatService> _logger;
-    private readonly AzureOpenAIClient? _client;
+    private readonly AIAgent? _agent;
 
     public AzureChatService(
         IOptions<AzureOpenAISettings> settings,
         SessionManager sessionManager,
-        ILogger<AzureChatService> logger)
+        ILogger<AzureChatService> logger,
+        ILoggerFactory loggerFactory)
     {
-        _settings = settings.Value;
         _sessionManager = sessionManager;
         _logger = logger;
 
-        // Initialize Azure OpenAI client if configured
-        if (!string.IsNullOrEmpty(_settings.Endpoint) && !string.IsNullOrEmpty(_settings.ApiKey))
+        var config = settings.Value;
+
+        // Initialize the AIAgent once if configured
+        if (!string.IsNullOrEmpty(config.Endpoint) && !string.IsNullOrEmpty(config.ApiKey))
         {
-            _client = new AzureOpenAIClient(
-                new Uri(_settings.Endpoint),
-                new AzureKeyCredential(_settings.ApiKey));
+            var client = new AzureOpenAIClient(
+                new Uri(config.Endpoint),
+                new AzureKeyCredential(config.ApiKey));
+
+            var chatClient = client.GetChatClient(config.ChatDeployment);
+
+            _agent = chatClient.CreateAIAgent(
+                name: "ChatAssistant",
+                instructions: "You are a helpful assistant. Respond naturally and concisely.",
+                description: "A helpful chat assistant powered by Azure OpenAI",
+                loggerFactory: loggerFactory);
         }
     }
 
@@ -41,41 +55,31 @@ public class AzureChatService
     /// </summary>
     public async Task HandleTextSession(WebSocket clientWs, string sessionId)
     {
-        if (_client == null)
+        if (_agent is null)
         {
-            await SendMessage(clientWs, new { type = "error", error = "Azure OpenAI is not configured. Check AZURE_ENDPOINT and AZURE_API_KEY environment variables." });
+            await SendMessageAsync(clientWs, new { type = "error", error = "Azure OpenAI is not configured. Check AZURE_ENDPOINT and AZURE_API_KEY environment variables." });
             return;
         }
 
-        var buffer = new byte[8 * 1024]; // 8KB buffer for text
-        var conversationHistory = new List<ChatMessage>
-        {
-            new SystemChatMessage("You are a helpful assistant. Respond naturally and concisely.")
-        };
+        // Create a new thread for this conversation session
+        var thread = _agent.GetNewThread();
+        
+        _logger.LogInformation("Text mode session started with AIAgent: {SessionId}", sessionId[..8]);
+        await SendMessageAsync(clientWs, new { type = "session.created", session_id = sessionId });
 
-        _logger.LogInformation("Text mode session started: {SessionId}", sessionId[..8]);
-
-        // Send session created notification
-        await SendMessage(clientWs, new { type = "session.created", session_id = sessionId });
+        var buffer = new byte[8 * 1024];
 
         try
         {
             while (clientWs.State == WebSocketState.Open)
             {
-                var result = await clientWs.ReceiveAsync(
-                    new ArraySegment<byte>(buffer), 
-                    CancellationToken.None);
-
-                if (result.MessageType == WebSocketMessageType.Close)
-                {
+                var message = await ReceiveFullMessageAsync(clientWs, buffer);
+                
+                if (message is null)
                     break;
-                }
 
-                if (result.MessageType == WebSocketMessageType.Text)
-                {
-                    var messageJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    await ProcessTextMessage(clientWs, sessionId, messageJson, conversationHistory);
-                }
+                _logger.LogDebug("[{SessionId}] Received: {Message}", sessionId[..8], message);
+                await ProcessMessageAsync(clientWs, sessionId, message, thread);
             }
         }
         catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
@@ -85,101 +89,93 @@ public class AzureChatService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in text session {SessionId}", sessionId[..8]);
-            await SendMessage(clientWs, new { type = "error", error = ex.Message });
+            await SendMessageAsync(clientWs, new { type = "error", error = ex.Message });
         }
     }
 
-    private async Task ProcessTextMessage(
-        WebSocket clientWs, 
-        string sessionId, 
-        string messageJson,
-        List<ChatMessage> conversationHistory)
+    private async Task<string?> ReceiveFullMessageAsync(WebSocket ws, byte[] buffer)
+    {
+        var messageBuilder = new StringBuilder();
+        WebSocketReceiveResult result;
+
+        do
+        {
+            result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+
+            if (result.MessageType == WebSocketMessageType.Close)
+                return null;
+
+            if (result.MessageType == WebSocketMessageType.Text)
+                messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+
+        } while (!result.EndOfMessage);
+
+        return messageBuilder.Length > 0 ? messageBuilder.ToString() : null;
+    }
+
+    private async Task ProcessMessageAsync(WebSocket clientWs, string sessionId, string messageJson, AgentThread thread)
     {
         try
         {
-            var request = JsonSerializer.Deserialize<TextMessageRequest>(messageJson);
-            
-            if (request?.Type != "text.message" || string.IsNullOrEmpty(request.Text))
+            var request = JsonSerializer.Deserialize<TextMessageRequest>(messageJson, JsonOptions);
+
+            if (!IsValidRequest(request, out var messageText))
             {
+                _logger.LogWarning("[{SessionId}] Invalid message type or empty content. Type: {Type}",
+                    sessionId[..8], request?.Type ?? "null");
                 return;
             }
 
-            _logger.LogInformation("[{SessionId}] User: {Message}", sessionId[..8], request.Text[..Math.Min(50, request.Text.Length)]);
+            _logger.LogInformation("[{SessionId}] User: {Message}", sessionId[..8], Truncate(messageText, 50));
             _sessionManager.UpdateActivity(sessionId);
 
-            // Add user message to history
-            conversationHistory.Add(new UserChatMessage(request.Text));
+            // Run the agent with the user's message
+            var response = await _agent!.RunAsync(
+                messages: [new ChatMessage(ChatRole.User, messageText)],
+                thread: thread);
 
-            // Send thinking notification
-            await SendMessage(clientWs, new { type = "response.thinking" });
+            var responseText = response.Text ?? string.Empty;
 
-            // Get response from Azure OpenAI
-            var chatClient = _client!.GetChatClient(_settings.ChatDeployment);
-            
-            // Stream the response
-            var responseBuilder = new StringBuilder();
-            
-            await foreach (var update in chatClient.CompleteChatStreamingAsync(conversationHistory))
-            {
-                foreach (var contentPart in update.ContentUpdate)
-                {
-                    if (!string.IsNullOrEmpty(contentPart.Text))
-                    {
-                        responseBuilder.Append(contentPart.Text);
-                        
-                        // Send delta to client
-                        await SendMessage(clientWs, new 
-                        { 
-                            type = "response.text.delta", 
-                            delta = contentPart.Text 
-                        });
-                    }
-                }
-            }
+            await SendMessageAsync(clientWs, new { type = "text_response", content = responseText });
 
-            var fullResponse = responseBuilder.ToString();
-            
-            // Add assistant response to history
-            conversationHistory.Add(new AssistantChatMessage(fullResponse));
-            
-            // Send completion notification
-            await SendMessage(clientWs, new 
-            { 
-                type = "response.done",
-                response = fullResponse
-            });
-
-            _logger.LogInformation("[{SessionId}] Assistant: {Response}", 
-                sessionId[..8], fullResponse[..Math.Min(50, fullResponse.Length)]);
+            _logger.LogInformation("[{SessionId}] Assistant: {Response}", sessionId[..8], Truncate(responseText, 50));
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "Invalid JSON message in session {SessionId}", sessionId[..8]);
+            _logger.LogWarning(ex, "Invalid JSON in session {SessionId}", sessionId[..8]);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing message in session {SessionId}", sessionId[..8]);
-            await SendMessage(clientWs, new { type = "error", error = ex.Message });
+            await SendMessageAsync(clientWs, new { type = "error", error = ex.Message });
         }
     }
 
-    private async Task SendMessage(WebSocket ws, object message)
+    private static bool IsValidRequest(TextMessageRequest? request, out string messageText)
     {
-        if (ws.State == WebSocketState.Open)
-        {
-            var json = JsonSerializer.Serialize(message);
-            var buffer = Encoding.UTF8.GetBytes(json);
-            await ws.SendAsync(
-                new ArraySegment<byte>(buffer),
-                WebSocketMessageType.Text,
-                true,
-                CancellationToken.None);
-        }
+        messageText = request?.Content ?? request?.Text ?? string.Empty;
+        return request?.Type is "text_message" or "text.message" && !string.IsNullOrEmpty(messageText);
     }
 
-    private class TextMessageRequest
+    private static string Truncate(string text, int maxLength) =>
+        text.Length <= maxLength ? text : text[..maxLength] + "...";
+
+    private static async Task SendMessageAsync(WebSocket ws, object message)
+    {
+        if (ws.State != WebSocketState.Open)
+            return;
+
+        var json = JsonSerializer.Serialize(message);
+        var buffer = Encoding.UTF8.GetBytes(json);
+        await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    private sealed class TextMessageRequest
     {
         public string? Type { get; set; }
         public string? Text { get; set; }
+        public string? Content { get; set; }
     }
 }

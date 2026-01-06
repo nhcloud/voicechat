@@ -7,6 +7,7 @@ Purpose:
 - Routes requests to appropriate Azure API
 - Manages authentication and rate limiting
 - Provides WebSocket proxy for realtime communication
+- Uses Microsoft Agent Framework for text chat (same as .NET version)
 """
 
 import asyncio
@@ -15,13 +16,17 @@ import json
 import os
 import logging
 import uuid
-import httpx
 from datetime import datetime, timedelta
 from typing import Dict, Set, Optional
 from dotenv import load_dotenv
 from collections import defaultdict
 from urllib.parse import parse_qs, urlparse
 from pathlib import Path
+
+# Microsoft Agent Framework imports (same pattern as .NET Microsoft.Agents.AI.AIAgent)
+# Using AzureOpenAIChatClient.create_agent() pattern as shown in:
+# https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai
+from agent_framework.azure import AzureOpenAIChatClient
 
 # Load environment variables from root voicechat folder
 # Try multiple locations for .env file
@@ -66,8 +71,14 @@ API_VERSION_CHAT = os.getenv('API_VERSION_CHAT', '2024-02-15-preview')
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 8001
 
+# Global Chat Agent instance (initialized once, like .NET's singleton service)
+# The agent is created from AzureOpenAIChatClient.create_agent()
+_chat_agent = None
+_chat_client = None
+_agent_lock = asyncio.Lock()
+
 # Session Management
-sessions: Dict[str, dict] = {}  # session_id -> {user_id, mode, created_at, azure_ws, client_ws}
+sessions: Dict[str, dict] = {}  # session_id -> {user_id, mode, created_at, azure_ws, client_ws, thread}
 user_connections: Dict[str, Set[str]] = defaultdict(set)  # user_id -> set of session_ids
 user_requests: Dict[str, list] = defaultdict(list)  # user_id -> list of timestamps
 
@@ -105,39 +116,81 @@ def build_azure_realtime_url():
     return url
 
 
-async def call_azure_chat_api(message: str) -> str:
-    """Call Azure Chat Completion API (REST) using httpx"""
-    url = f"{AZURE_ENDPOINT}/openai/deployments/{AZURE_CHAT_DEPLOYMENT}/chat/completions?api-version={API_VERSION_CHAT}"
+async def get_chat_agent():
+    """
+    Get or create the ChatAgent instance (singleton pattern like .NET).
+    Uses Microsoft Agent Framework with Azure OpenAI, matching the .NET implementation.
+    
+    Pattern follows:
+    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_basic.py
+    """
+    global _chat_agent, _chat_client
+    
+    async with _agent_lock:
+        if _chat_agent is not None:
+            return _chat_agent
+        
+        if not AZURE_ENDPOINT or not AZURE_API_KEY:
+            logger.error("Azure configuration not set - cannot create ChatAgent")
+            return None
+        
+        try:
+            # Create the Azure OpenAI Chat Client with explicit settings
+            # This mirrors the .NET pattern: AzureOpenAIClient -> GetChatClient -> CreateAIAgent
+            _chat_client = AzureOpenAIChatClient(
+                endpoint=AZURE_ENDPOINT,
+                deployment_name=AZURE_CHAT_DEPLOYMENT,
+                api_key=AZURE_API_KEY,
+            )
+            
+            # Create agent from the chat client (like .NET's CreateAIAgent)
+            _chat_agent = _chat_client.create_agent(
+                instructions="You are a helpful assistant. Respond naturally and concisely.",
+            )
+            
+            logger.info("✓ ChatAgent initialized with Microsoft Agent Framework (AzureOpenAIChatClient)")
+            return _chat_agent
+            
+        except Exception as e:
+            logger.error(f"Failed to create ChatAgent: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
-    headers = {
-        "api-key": AZURE_API_KEY,
-        "Content-Type": "application/json"
-    }
 
-    data = {
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant. Respond naturally and concisely."},
-            {"role": "user", "content": message}
-        ],
-        "max_tokens": 800,
-        "temperature": 0.7
-    }
-
+async def call_azure_chat_api_with_agent(message: str, thread) -> str:
+    """
+    Call Azure Chat API using Microsoft Agent Framework (ChatAgent).
+    This mirrors the .NET AzureChatService pattern using AIAgent.
+    
+    Pattern follows:
+    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_with_thread.py
+    
+    Args:
+        message: User's text message
+        thread: The agent thread for conversation history
+    
+    Returns:
+        The assistant's response text
+    """
+    agent = await get_chat_agent()
+    if agent is None:
+        return "Error: Azure OpenAI is not configured. Check AZURE_ENDPOINT and AZURE_API_KEY environment variables."
+    
     try:
-        timeout = httpx.Timeout(30.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(url, headers=headers, json=data)
-            if response.status_code == 200:
-                result = response.json()
-                return result['choices'][0]['message']['content']
-            else:
-                logger.error(f"Azure Chat API error: {response.status_code} - {response.text}")
-                return f"Error: Failed to get response (status {response.status_code})"
-    except httpx.ReadTimeout:
-        logger.error("Azure Chat API timeout")
-        return "Error: Request timed out"
+        # Run the agent with the user's message (mirrors .NET's agent.RunAsync)
+        # Using non-streaming for simplicity - thread maintains conversation history
+        result = await agent.run(message, thread=thread)
+        
+        # AgentRunResponse has a text property with the response content
+        response_text = str(result) if result else "No response generated."
+        
+        return response_text
+        
     except Exception as e:
-        logger.error(f"Azure Chat API exception: {e}")
+        logger.error(f"Agent error: {e}")
+        import traceback
+        traceback.print_exc()
         return f"Error: {str(e)}"
 
 
@@ -150,7 +203,8 @@ def create_session(user_id: str, mode: str) -> str:
         'created_at': datetime.now(),
         'azure_ws': None,
         'client_ws': None,
-        'message_count': 0
+        'message_count': 0,
+        'thread': None  # Agent thread for text mode conversation history
     }
     user_connections[user_id].add(session_id)
     logger.info(f"✓ Created {mode} session {session_id} for user {user_id}")
@@ -298,13 +352,40 @@ async def handle_voice_mode(websocket, session_id: str):
 
 
 # ==============================================
-# TEXT MODE HANDLERS (Chat Completion API)
+# TEXT MODE HANDLERS (Microsoft Agent Framework)
 # ==============================================
 
 async def handle_text_mode(websocket, session_id: str):
-    """Handle Text Mode connection"""
+    """
+    Handle Text Mode connection using Microsoft Agent Framework.
+    This mirrors the .NET AzureChatService implementation using AIAgent.
+    
+    Pattern follows:
+    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_with_thread.py
+    """
     try:
-        logger.info(f"✓ Text mode activated for session {session_id[:8]}")
+        # Get the ChatAgent instance
+        agent = await get_chat_agent()
+        if agent is None:
+            await websocket.send(json.dumps({
+                'type': 'error',
+                'error': 'Azure OpenAI is not configured. Check AZURE_ENDPOINT and AZURE_API_KEY environment variables.'
+            }))
+            return
+        
+        # Create a new thread for this conversation session (like .NET's agent.GetNewThread())
+        # The thread maintains conversation history across multiple agent.run() calls
+        thread = agent.get_new_thread()
+        sessions[session_id]['thread'] = thread
+        
+        logger.info(f"✓ Text mode activated with ChatAgent for session {session_id[:8]}")
+        
+        # Send session created confirmation
+        await websocket.send(json.dumps({
+            'type': 'session.created',
+            'session_id': session_id
+        }))
+        
         logger.info(f"Waiting for text messages...")
         
         async for message in websocket:
@@ -313,13 +394,18 @@ async def handle_text_mode(websocket, session_id: str):
                     data = json.loads(message)
                     logger.debug(f"Received message type: {data.get('type')}")
                     
-                    if data.get('type') == 'text_message':
-                        user_message = data.get('content', '')
-                        logger.info(f"📨 Text message from user: {user_message[:50]}...")
+                    if data.get('type') in ['text_message', 'text.message']:
+                        user_message = data.get('content', '') or data.get('text', '')
                         
-                        # Call Azure Chat API
-                        response = await call_azure_chat_api(user_message)
-                        logger.info(f"📨 Response from Azure: {response[:50]}...")
+                        if not user_message:
+                            logger.warning(f"[{session_id[:8]}] Empty message received")
+                            continue
+                        
+                        logger.info(f"📨 [{session_id[:8]}] User: {user_message[:50]}...")
+                        
+                        # Call the agent using the Agent Framework (mirrors .NET's agent.RunAsync)
+                        response = await call_azure_chat_api_with_agent(user_message, thread)
+                        logger.info(f"📨 [{session_id[:8]}] Assistant: {response[:50]}...")
                         
                         # Send back to client
                         await websocket.send(json.dumps({
@@ -447,31 +533,62 @@ async def periodic_cleanup():
             cleanup_session(sid)
 
 
+from websockets.http11 import Response
+
+
+async def health_check(connection, request):
+    """
+    HTTP health check endpoint (matches .NET's /health endpoint).
+    This is called by websockets library for HTTP requests before WebSocket upgrade.
+    """
+    if request.path == "/health":
+        return Response(
+            200,
+            "OK",
+            websockets.Headers([("Content-Type", "application/json")]),
+            json.dumps({
+                "status": "healthy",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }).encode()
+        )
+    # Return None to let websockets handle as WebSocket
+    return None
+
+
 async def main():
     """Start the WebSocket server"""
     validate_azure_config()
     
+    # Initialize the ChatAgent at startup (like .NET's DI singleton)
+    agent = await get_chat_agent()
+    if agent:
+        logger.info("✓ ChatAgent ready for text mode sessions")
+    else:
+        logger.warning("⚠ ChatAgent not initialized - text mode will not work")
+    
     logger.info("=" * 70)
-    logger.info("🚀 Backend Server (WebSocket + Azure AI)")
+    logger.info("🚀 Backend Server (WebSocket + Microsoft Agent Framework)")
     logger.info("=" * 70)
     logger.info(f"Server: ws://{SERVER_HOST}:{SERVER_PORT}")
+    logger.info(f"Health: http://{SERVER_HOST}:{SERVER_PORT}/health")
     logger.info(f"Azure: {AZURE_ENDPOINT}")
     logger.info(f"Voice Mode: {AZURE_REALTIME_DEPLOYMENT} (Realtime API)")
-    logger.info(f"Text Mode: {AZURE_CHAT_DEPLOYMENT} (Chat Completion API)")
+    logger.info(f"Text Mode: {AZURE_CHAT_DEPLOYMENT} (Agent Framework - ChatAgent)")
     logger.info(f"Rate Limit: {MAX_REQUESTS_PER_MINUTE} req/min, {MAX_CONNECTIONS_PER_USER} concurrent")
     logger.info("=" * 70)
     
     # Start cleanup task
     cleanup_task = asyncio.create_task(periodic_cleanup())
     
-    # Start WebSocket server
+    # Start WebSocket server with HTTP health check support
     async with websockets.serve(
         handle_client_connection,
         SERVER_HOST,
         SERVER_PORT,
         max_size=10 * 1024 * 1024,  # 10MB max message size
         ping_interval=20,
-        ping_timeout=20
+        ping_timeout=20,
+        process_request=health_check  # Handle /health HTTP requests
     ):
         logger.info("✅ Backend ready for connections")
         logger.info("📡 Accepting both Voice and Text mode connections")

@@ -1,6 +1,6 @@
 # 🎤 Real-Time AI Voice Chat
 
-A production-ready AI assistant with dual-mode support: **Voice chat** using Azure OpenAI Realtime API and **Text chat** using Chat Completion API.
+A production-ready AI assistant with dual-mode support: **Voice chat** using Azure OpenAI Realtime API and **Text chat** using Microsoft Agent Framework.
 
 Available in both **Python** and **.NET** implementations with a shared frontend.
 
@@ -32,10 +32,75 @@ Both backends act as a **WebSocket proxy** between the browser and Azure:
 
 ### Dual-Mode API Selection
 
-| Mode | Azure API | WebSocket URL | Use Case |
-|------|-----------|---------------|----------|
-| **Voice** | Realtime API | `ws://localhost:8001?mode=voice` | Real-time voice conversation |
-| **Text** | Chat Completion API | `ws://localhost:8001?mode=text` | Text-based queries |
+| Mode | Technology | WebSocket URL | Use Case |
+|------|------------|---------------|----------|
+| **Voice** | Azure Realtime API | `ws://localhost:8001?mode=voice` | Real-time voice conversation |
+| **Text** | Microsoft Agent Framework | `ws://localhost:8001?mode=text` | Text-based queries with memory |
+
+## 🤖 Microsoft Agent Framework
+
+Both Python and .NET backends use [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) for text mode, providing a unified programming model:
+
+### Key Benefits
+
+- **Conversation Memory**: `AgentThread` maintains context across multiple turns
+- **Unified API**: Same patterns work in Python and .NET
+- **Tool Support**: Add custom functions that the AI can invoke
+- **Streaming**: Built-in streaming response support
+- **Enterprise Ready**: Production-quality AI orchestration
+
+### API Comparison
+
+| Concept | Python | .NET |
+|---------|--------|------|
+| **Client** | `AzureOpenAIChatClient` | `AzureOpenAIClient` |
+| **Create Agent** | `client.create_agent(instructions=...)` | `chatClient.CreateAIAgent(instructions: ...)` |
+| **Run Agent** | `await agent.run(message, thread=thread)` | `await agent.RunAsync(message, thread)` |
+| **New Thread** | `agent.get_new_thread()` | `agent.GetNewThread()` |
+| **Streaming** | `agent.run_stream()` | `agent.RunStreamingAsync()` |
+
+### Python Example
+
+```python
+from agent_framework.azure import AzureOpenAIChatClient
+
+# Create client and agent
+client = AzureOpenAIChatClient(
+    endpoint=AZURE_ENDPOINT,
+    deployment_name=AZURE_CHAT_DEPLOYMENT,
+    api_key=AZURE_API_KEY,
+)
+agent = client.create_agent(instructions="You are a helpful assistant.")
+
+# Create thread for conversation memory
+thread = agent.get_new_thread()
+
+# Run with context
+result = await agent.run("Hello!", thread=thread)
+```
+
+### .NET Example
+
+```csharp
+using Microsoft.Agents.AI;
+using Azure.AI.OpenAI;
+
+// Create client and agent
+var client = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+var chatClient = client.GetChatClient(deploymentName);
+var agent = chatClient.CreateAIAgent(
+    name: "ChatAssistant",
+    instructions: "You are a helpful assistant."
+);
+
+// Create thread for conversation memory
+var thread = agent.GetNewThread();
+
+// Run with context
+var result = await agent.RunAsync("Hello!", thread);
+```
+
+See [Agent Framework GitHub](https://github.com/microsoft/agent-framework) for more examples and documentation.
 
 ## 📁 Project Structure
 
@@ -47,13 +112,16 @@ voicechat/
 │
 ├── dotnet/               # .NET Backend
 │   ├── README.md         # .NET-specific setup
+│   ├── concepts.ipynb    # .NET concepts notebook
 │   └── backend/          # WebSocket server (port 8001)
 │
 ├── python/               # Python Backend
 │   ├── README.md         # Python-specific setup
+│   ├── concepts.ipynb    # Python concepts notebook
 │   └── backend/          # WebSocket server (port 8001)
 │
 └── ui/                   # Shared Frontend (Node.js)
+    ├── README.md         # Frontend documentation
     ├── index.html        # Main UI
     ├── styles.css        # ChatGPT-style theme
     ├── script.js         # Voice/text logic
@@ -87,7 +155,7 @@ Choose **one** backend to run:
 
 | Backend | Command |
 |---------|---------|
-| Python | `cd python/backend && pip install -r requirements.txt && python3 server.py` |
+| Python | `cd python/backend && pip install -r ../requirements.txt --pre && python3 server.py` |
 | .NET | `cd dotnet/backend && dotnet run` |
 
 See [Python README](python/README.md) or [.NET README](dotnet/README.md) for detailed setup.
@@ -124,7 +192,7 @@ Configure in `.env` file at the project root:
 
 ### Dual-Mode Support
 - **Voice Mode** - Real-time voice conversation with natural speech
-- **Text Mode** - Traditional text chat with streaming responses
+- **Text Mode** - Traditional text chat with streaming responses and conversation memory
 - **Seamless Toggle** - Switch between modes with one click
 
 ### Voice Mode Features
@@ -132,6 +200,12 @@ Configure in `.env` file at the project root:
 - 🔊 AI voice responses
 - ⚡ Barge-in support (interrupt AI mid-response)
 - 🎨 Animated voice orb UI
+
+### Text Mode Features (Agent Framework)
+- 💬 Text-based chat with streaming responses
+- 🧠 Conversation memory via `AgentThread`
+- 🔧 Extensible with custom tools/functions
+- 🔄 Same API patterns in Python and .NET
 
 ### Security Features
 - 🔒 API keys stored server-side only
@@ -151,7 +225,7 @@ Configure in `.env` file at the project root:
 1. Click the **Text** toggle button
 2. Type your message
 3. Press **Enter** to send
-4. View streaming responses
+4. View streaming responses with conversation context
 
 ## 🔒 Security Notes
 
@@ -161,5 +235,19 @@ Configure in `.env` file at the project root:
 
 ## 📚 Platform-Specific Documentation
 
-- [Python Backend](python/README.md) - Python setup, dependencies, and code structure
-- [.NET Backend](dotnet/README.md) - .NET setup, NuGet packages, and code structure
+- [Python Backend](python/README.md) - Python setup, dependencies, and Agent Framework usage
+- [.NET Backend](dotnet/README.md) - .NET setup, dependencies, and Agent Framework usage
+- [Frontend UI](ui/README.md) - Frontend setup and configuration
+
+## 📓 Concept Notebooks
+
+Interactive notebooks explaining the architecture and Agent Framework concepts:
+
+- [Python Concepts](python/concepts.ipynb) - Python Agent Framework patterns
+- [.NET Concepts](dotnet/concepts.ipynb) - .NET Agent Framework patterns
+
+## 🔗 Resources
+
+- [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) - Official repository
+- [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/) - Azure documentation
+- [Azure OpenAI Realtime API](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/realtime-audio) - Voice mode documentation
