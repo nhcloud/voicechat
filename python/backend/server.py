@@ -24,10 +24,9 @@ from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 
 # Microsoft Agent Framework imports (same pattern as .NET Microsoft.Agents.AI.AIAgent)
-from agent_framework import ChatAgent
-from agent_framework_azure_ai import AzureAIAgentClient
-from azure.identity.aio import DefaultAzureCredential
-from azure.core.credentials import AzureKeyCredential
+# Using AzureOpenAIChatClient.create_agent() pattern as shown in:
+# https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai
+from agent_framework.azure import AzureOpenAIChatClient
 
 # Load environment variables from root voicechat folder
 # Try multiple locations for .env file
@@ -73,7 +72,9 @@ SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 8001
 
 # Global Chat Agent instance (initialized once, like .NET's singleton service)
-_chat_agent: Optional[ChatAgent] = None
+# The agent is created from AzureOpenAIChatClient.create_agent()
+_chat_agent = None
+_chat_client = None
 _agent_lock = asyncio.Lock()
 
 # Session Management
@@ -115,12 +116,15 @@ def build_azure_realtime_url():
     return url
 
 
-async def get_chat_agent() -> Optional[ChatAgent]:
+async def get_chat_agent():
     """
     Get or create the ChatAgent instance (singleton pattern like .NET).
     Uses Microsoft Agent Framework with Azure OpenAI, matching the .NET implementation.
+    
+    Pattern follows:
+    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_basic.py
     """
-    global _chat_agent
+    global _chat_agent, _chat_client
     
     async with _agent_lock:
         if _chat_agent is not None:
@@ -131,25 +135,26 @@ async def get_chat_agent() -> Optional[ChatAgent]:
             return None
         
         try:
-            # Create the agent client for Azure OpenAI
+            # Create the Azure OpenAI Chat Client with explicit settings
             # This mirrors the .NET pattern: AzureOpenAIClient -> GetChatClient -> CreateAIAgent
-            client = AzureAIAgentClient(
+            _chat_client = AzureOpenAIChatClient(
                 endpoint=AZURE_ENDPOINT,
-                model_deployment_name=AZURE_CHAT_DEPLOYMENT,
-                credential=AzureKeyCredential(AZURE_API_KEY),
-                agent_name="ChatAssistant",
+                deployment_name=AZURE_CHAT_DEPLOYMENT,
+                api_key=AZURE_API_KEY,
             )
             
-            _chat_agent = ChatAgent(
-                chat_client=client,
+            # Create agent from the chat client (like .NET's CreateAIAgent)
+            _chat_agent = _chat_client.create_agent(
                 instructions="You are a helpful assistant. Respond naturally and concisely.",
             )
             
-            logger.info("✓ ChatAgent initialized with Microsoft Agent Framework")
+            logger.info("✓ ChatAgent initialized with Microsoft Agent Framework (AzureOpenAIChatClient)")
             return _chat_agent
             
         except Exception as e:
             logger.error(f"Failed to create ChatAgent: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
 
@@ -157,6 +162,9 @@ async def call_azure_chat_api_with_agent(message: str, thread) -> str:
     """
     Call Azure Chat API using Microsoft Agent Framework (ChatAgent).
     This mirrors the .NET AzureChatService pattern using AIAgent.
+    
+    Pattern follows:
+    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_with_thread.py
     
     Args:
         message: User's text message
@@ -170,16 +178,19 @@ async def call_azure_chat_api_with_agent(message: str, thread) -> str:
         return "Error: Azure OpenAI is not configured. Check AZURE_ENDPOINT and AZURE_API_KEY environment variables."
     
     try:
-        # Run the agent with the user's message (mirrors .NET's _agent.RunAsync)
-        response_text = ""
-        async for chunk in agent.run_stream(message, thread=thread):
-            if chunk.text:
-                response_text += chunk.text
+        # Run the agent with the user's message (mirrors .NET's agent.RunAsync)
+        # Using non-streaming for simplicity - thread maintains conversation history
+        result = await agent.run(message, thread=thread)
         
-        return response_text if response_text else "No response generated."
+        # AgentRunResponse has a text property with the response content
+        response_text = str(result) if result else "No response generated."
+        
+        return response_text
         
     except Exception as e:
         logger.error(f"Agent error: {e}")
+        import traceback
+        traceback.print_exc()
         return f"Error: {str(e)}"
 
 
@@ -348,6 +359,9 @@ async def handle_text_mode(websocket, session_id: str):
     """
     Handle Text Mode connection using Microsoft Agent Framework.
     This mirrors the .NET AzureChatService implementation using AIAgent.
+    
+    Pattern follows:
+    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_with_thread.py
     """
     try:
         # Get the ChatAgent instance
@@ -360,6 +374,7 @@ async def handle_text_mode(websocket, session_id: str):
             return
         
         # Create a new thread for this conversation session (like .NET's agent.GetNewThread())
+        # The thread maintains conversation history across multiple agent.run() calls
         thread = agent.get_new_thread()
         sessions[session_id]['thread'] = thread
         
