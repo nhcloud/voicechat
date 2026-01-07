@@ -445,6 +445,66 @@ body {
     color: var(--accent);
 }
 
+/* Voice Selector */
+.voice-selector-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    margin-top: 8px;
+}
+
+.voice-selector-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.voice-selector-label svg {
+    color: var(--accent);
+}
+
+.voice-selector {
+    padding: 8px 32px 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    min-width: 160px;
+}
+
+.voice-selector:hover {
+    border-color: var(--accent);
+    background-color: var(--bg-tertiary);
+}
+
+.voice-selector:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.voice-selector option {
+    padding: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
 /* Voice Controls */
 .voice-controls {
     display: flex;

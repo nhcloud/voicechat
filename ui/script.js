@@ -37,6 +37,9 @@ const helpBtn = document.getElementById('helpBtn');
 const helpModal = document.getElementById('helpModal');
 const closeHelpModal = document.getElementById('closeHelpModal');
 
+// Voice Selector
+const voiceSelector = document.getElementById('voiceSelector');
+
 // ============================================
 // STATE VARIABLES
 // ============================================
@@ -288,6 +291,9 @@ async function connectVoiceMode() {
 }
 
 function sendSessionUpdate() {
+    const selectedVoice = voiceSelector ? voiceSelector.value : 'alloy';
+    console.log(`🔊 Using voice: ${selectedVoice}`);
+    
     ws.send(JSON.stringify({
         type: 'session.update',
         session: {
@@ -302,7 +308,7 @@ function sendSessionUpdate() {
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: { model: 'whisper-1' },
-            voice: 'alloy'
+            voice: selectedVoice
         }
     }));
 }

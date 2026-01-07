@@ -103,6 +103,28 @@
                     <span class="status-text">Ready to listen</span>
                 </div>
 
+                <!-- Voice Selector -->
+                <div class="voice-selector-container">
+                    <label class="voice-selector-label">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                        </svg>
+                        <span>AI Voice:</span>
+                    </label>
+                    <select id="voiceSelector" class="voice-selector">
+                        <option value="alloy">Alloy (Neutral)</option>
+                        <option value="echo">Echo (Male)</option>
+                        <option value="shimmer">Shimmer (Female)</option>
+                        <option value="ash">Ash (Male)</option>
+                        <option value="ballad">Ballad (Male)</option>
+                        <option value="coral">Coral (Female)</option>
+                        <option value="sage">Sage (Female)</option>
+                        <option value="verse">Verse (Male)</option>
+                    </select>
+                </div>
+
                 <div class="voice-controls">
                     <button class="voice-btn" id="micBtn">
                         <svg class="mic-icon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
