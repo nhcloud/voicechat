@@ -147,6 +147,7 @@ public class AzureRealtimeService
 
     /// <summary>
     /// Proxies messages from Azure back to client browser
+    /// Intercepts function calls and executes tools server-side
     /// </summary>
     private async Task ProxyAzureToClient(
         WebSocket azureWs, 
@@ -172,19 +173,32 @@ public class AzureRealtimeService
                     break;
                 }
 
+                // Check for function calls in text messages
+                if (result.MessageType == WebSocketMessageType.Text)
+                {
+                    var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    
+                    // Check if this is a function call that needs server-side handling
+                    if (await TryHandleFunctionCall(message, azureWs, sessionId, cancellationToken))
+                    {
+                        // Function was handled, still forward to client for visibility
+                        await clientWs.SendAsync(
+                            new ArraySegment<byte>(buffer, 0, result.Count),
+                            result.MessageType,
+                            result.EndOfMessage,
+                            cancellationToken);
+                        continue;
+                    }
+                    
+                    LogAzureMessage(message, sessionId);
+                }
+
                 // Forward to client
                 await clientWs.SendAsync(
                     new ArraySegment<byte>(buffer, 0, result.Count),
                     result.MessageType,
                     result.EndOfMessage,
                     cancellationToken);
-
-                // Log JSON messages (skip binary audio for noise reduction)
-                if (result.MessageType == WebSocketMessageType.Text)
-                {
-                    var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    LogAzureMessage(message, sessionId);
-                }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -195,6 +209,114 @@ public class AzureRealtimeService
         {
             _logger.LogInformation("Azure connection closed prematurely for session {SessionId}", sessionId[..8]);
         }
+    }
+
+    /// <summary>
+    /// Handles function calls from Azure OpenAI and sends results back
+    /// </summary>
+    private async Task<bool> TryHandleFunctionCall(
+        string message, 
+        WebSocket azureWs, 
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(message);
+            var root = doc.RootElement;
+            
+            if (!root.TryGetProperty("type", out var typeElement))
+                return false;
+
+            var type = typeElement.GetString();
+            
+            // Handle function call arguments done - this is when we execute the tool
+            if (type == "response.function_call_arguments.done")
+            {
+                var callId = root.TryGetProperty("call_id", out var callIdEl) 
+                    ? callIdEl.GetString() : null;
+                var name = root.TryGetProperty("name", out var nameEl) 
+                    ? nameEl.GetString() : null;
+                var arguments = root.TryGetProperty("arguments", out var argsEl) 
+                    ? argsEl.GetString() : "{}";
+
+                if (string.IsNullOrEmpty(callId) || string.IsNullOrEmpty(name))
+                    return false;
+
+                _logger.LogInformation("[{SessionId}] 🔧 Function call: {Name} with args: {Args}", 
+                    sessionId[..8], name, arguments);
+
+                // Execute the tool
+                string result;
+                if (name == "get_weather")
+                {
+                    result = WeatherTool.Execute(arguments ?? "{}");
+                    _logger.LogInformation("[{SessionId}] 🌤️ Weather result: {Result}", sessionId[..8], result);
+                }
+                else
+                {
+                    result = JsonSerializer.Serialize(new { error = $"Unknown function: {name}" });
+                    _logger.LogWarning("[{SessionId}] ⚠️ Unknown function: {Name}", sessionId[..8], name);
+                }
+
+                // Send the function result back to Azure
+                await SendFunctionResult(azureWs, callId, result, cancellationToken);
+                
+                return true;
+            }
+
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Sends function execution result back to Azure OpenAI
+    /// </summary>
+    private async Task SendFunctionResult(
+        WebSocket azureWs, 
+        string callId, 
+        string result,
+        CancellationToken cancellationToken)
+    {
+        // Send conversation.item.create with function output
+        var itemCreate = JsonSerializer.Serialize(new
+        {
+            type = "conversation.item.create",
+            item = new
+            {
+                type = "function_call_output",
+                call_id = callId,
+                output = result
+            }
+        });
+
+        var itemBuffer = Encoding.UTF8.GetBytes(itemCreate);
+        await azureWs.SendAsync(
+            new ArraySegment<byte>(itemBuffer),
+            WebSocketMessageType.Text,
+            true,
+            cancellationToken);
+
+        _logger.LogDebug("Sent function_call_output for call_id: {CallId}", callId);
+
+        // Trigger response.create to continue the conversation
+        var responseCreate = JsonSerializer.Serialize(new
+        {
+            type = "response.create"
+        });
+
+        var responseBuffer = Encoding.UTF8.GetBytes(responseCreate);
+        await azureWs.SendAsync(
+            new ArraySegment<byte>(responseBuffer),
+            WebSocketMessageType.Text,
+            true,
+            cancellationToken);
+
+        _logger.LogDebug("Sent response.create to continue after function call");
     }
 
     private void LogClientMessage(string message, string sessionId)

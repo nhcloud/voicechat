@@ -28,6 +28,9 @@ from pathlib import Path
 # https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai
 from agent_framework.azure import AzureOpenAIChatClient
 
+# Weather tool for function calling
+from weather_tool import execute_tool
+
 # Load environment variables from root voicechat folder
 # Try multiple locations for .env file
 env_paths = [
@@ -284,11 +287,21 @@ async def proxy_client_to_azure(client_ws, azure_ws, session_id: str):
 
 
 async def proxy_azure_to_client(azure_ws, client_ws, session_id: str):
-    """Forward messages from Azure back to client browser (Voice Mode)"""
+    """
+    Forward messages from Azure back to client browser (Voice Mode)
+    Intercepts function calls and executes tools server-side
+    """
     try:
         async for message in azure_ws:
             if isinstance(message, str):
                 logger.debug(f"Azure → Client [session {session_id[:8]}]: {message[:100]}...")
+                
+                # Check for function calls that need server-side handling
+                if await try_handle_function_call(message, azure_ws, session_id):
+                    # Function was handled, still forward to client for visibility
+                    await client_ws.send(message)
+                    continue
+                
                 await client_ws.send(message)
             elif isinstance(message, bytes):
                 logger.debug(f"Azure → Client [session {session_id[:8]}]: {len(message)} bytes audio")
@@ -297,6 +310,79 @@ async def proxy_azure_to_client(azure_ws, client_ws, session_id: str):
         logger.info(f"Azure disconnected [session {session_id[:8]}]")
     except Exception as e:
         logger.error(f"Error proxying Azure to client: {e}")
+
+
+async def try_handle_function_call(message: str, azure_ws, session_id: str) -> bool:
+    """
+    Handle function calls from Azure OpenAI and send results back
+    
+    Args:
+        message: JSON message from Azure
+        azure_ws: WebSocket connection to Azure
+        session_id: Current session ID
+        
+    Returns:
+        True if a function call was handled, False otherwise
+    """
+    try:
+        data = json.loads(message)
+        msg_type = data.get("type")
+        
+        # Handle function call arguments done - this is when we execute the tool
+        if msg_type == "response.function_call_arguments.done":
+            call_id = data.get("call_id")
+            name = data.get("name")
+            arguments = data.get("arguments", "{}")
+            
+            if not call_id or not name:
+                return False
+            
+            logger.info(f"[{session_id[:8]}] 🔧 Function call: {name} with args: {arguments}")
+            
+            # Execute the tool
+            result = execute_tool(name, arguments)
+            logger.info(f"[{session_id[:8]}] 🌤️ Tool result: {result}")
+            
+            # Send the function result back to Azure
+            await send_function_result(azure_ws, call_id, result)
+            
+            return True
+        
+        return False
+    except json.JSONDecodeError:
+        return False
+    except Exception as e:
+        logger.error(f"Error handling function call: {e}")
+        return False
+
+
+async def send_function_result(azure_ws, call_id: str, result: str):
+    """
+    Send function execution result back to Azure OpenAI
+    
+    Args:
+        azure_ws: WebSocket connection to Azure
+        call_id: The function call ID
+        result: JSON string with the function result
+    """
+    # Send conversation.item.create with function output
+    item_create = json.dumps({
+        "type": "conversation.item.create",
+        "item": {
+            "type": "function_call_output",
+            "call_id": call_id,
+            "output": result
+        }
+    })
+    await azure_ws.send(item_create)
+    logger.debug(f"Sent function_call_output for call_id: {call_id}")
+    
+    # Trigger response.create to continue the conversation
+    response_create = json.dumps({
+        "type": "response.create"
+    })
+    await azure_ws.send(response_create)
+    logger.debug("Sent response.create to continue after function call")
 
 
 async def handle_voice_mode(websocket, session_id: str):

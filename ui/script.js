@@ -37,6 +37,9 @@ const helpBtn = document.getElementById('helpBtn');
 const helpModal = document.getElementById('helpModal');
 const closeHelpModal = document.getElementById('closeHelpModal');
 
+// Voice Selector
+const voiceSelector = document.getElementById('voiceSelector');
+
 // ============================================
 // STATE VARIABLES
 // ============================================
@@ -288,10 +291,13 @@ async function connectVoiceMode() {
 }
 
 function sendSessionUpdate() {
+    const selectedVoice = voiceSelector ? voiceSelector.value : 'alloy';
+    console.log(`🔊 Using voice: ${selectedVoice}`);
+    
     ws.send(JSON.stringify({
         type: 'session.update',
         session: {
-            instructions: 'You are a helpful voice assistant. Respond naturally and concisely.',
+            instructions: 'You are a helpful voice assistant. Respond naturally and concisely. When users ask about weather in a city, use the get_weather function to retrieve current weather information.',
             modalities: ['audio', 'text'],
             turn_detection: {
                 type: 'server_vad',
@@ -302,7 +308,30 @@ function sendSessionUpdate() {
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: { model: 'whisper-1' },
-            voice: 'alloy'
+            voice: selectedVoice,
+            tools: [
+                {
+                    type: 'function',
+                    name: 'get_weather',
+                    description: 'Get the current weather for a specified city. Call this whenever the user asks about weather conditions in a specific location.',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            city: {
+                                type: 'string',
+                                description: "The city name to get weather for (e.g., 'Seattle', 'New York', 'London')"
+                            },
+                            unit: {
+                                type: 'string',
+                                description: "Temperature unit: 'celsius' or 'fahrenheit'",
+                                enum: ['celsius', 'fahrenheit']
+                            }
+                        },
+                        required: ['city']
+                    }
+                }
+            ],
+            tool_choice: 'auto'
         }
     }));
 }
