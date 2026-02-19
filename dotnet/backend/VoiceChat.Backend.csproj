@@ -12,9 +12,9 @@
     <PackageReference Include="Azure.AI.OpenAI" Version="2.*-*" />
     <PackageReference Include="Azure.Identity" Version="1.*" />
     <PackageReference Include="DotNetEnv" Version="3.*" />
-    <PackageReference Include="Microsoft.Agents.AI.AzureAI" Version="*-*" />
-    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="*-*" />
-    <PackageReference Include="Microsoft.Extensions.AI" Version="*-*" />
+    <PackageReference Include="Microsoft.Agents.AI.AzureAI" Version="1.0.0-preview.260212.1" />
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.260212.1" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.3.0" />
   </ItemGroup>
 
 </Project>

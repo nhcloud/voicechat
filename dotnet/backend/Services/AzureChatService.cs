@@ -42,7 +42,7 @@ public class AzureChatService
 
             var chatClient = client.GetChatClient(config.ChatDeployment);
 
-            _agent = chatClient.CreateAIAgent(
+            _agent = chatClient.AsAIAgent(
                 name: "ChatAssistant",
                 instructions: "You are a helpful assistant. Respond naturally and concisely.",
                 description: "A helpful chat assistant powered by Azure OpenAI",
@@ -62,7 +62,7 @@ public class AzureChatService
         }
 
         // Create a new thread for this conversation session
-        var thread = _agent.GetNewThread();
+        var session = await _agent.CreateSessionAsync();
         
         _logger.LogInformation("Text mode session started with AIAgent: {SessionId}", sessionId[..8]);
         await SendMessageAsync(clientWs, new { type = "session.created", session_id = sessionId });
@@ -79,7 +79,7 @@ public class AzureChatService
                     break;
 
                 _logger.LogDebug("[{SessionId}] Received: {Message}", sessionId[..8], message);
-                await ProcessMessageAsync(clientWs, sessionId, message, thread);
+                await ProcessMessageAsync(clientWs, sessionId, message, session);
             }
         }
         catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
@@ -113,7 +113,7 @@ public class AzureChatService
         return messageBuilder.Length > 0 ? messageBuilder.ToString() : null;
     }
 
-    private async Task ProcessMessageAsync(WebSocket clientWs, string sessionId, string messageJson, AgentThread thread)
+    private async Task ProcessMessageAsync(WebSocket clientWs, string sessionId, string messageJson, AgentSession session)
     {
         try
         {
@@ -132,7 +132,7 @@ public class AzureChatService
             // Run the agent with the user's message
             var response = await _agent!.RunAsync(
                 messages: [new ChatMessage(ChatRole.User, messageText)],
-                thread: thread);
+                session: session);
 
             var responseText = response.Text ?? string.Empty;
 
