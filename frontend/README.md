@@ -22,7 +22,7 @@ The frontend will start on **http://localhost:8000** and open automatically in y
 ## Project Structure
 
 ```
-ui/
+frontend/
 ├── index.html          # Main HTML page
 ├── styles.css          # ChatGPT-style dark theme
 ├── script.js           # Voice/text chat logic

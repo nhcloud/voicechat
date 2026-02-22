@@ -34,8 +34,8 @@ from weather_tool import execute_tool
 # Load environment variables from root voicechat folder
 # Try multiple locations for .env file
 env_paths = [
-    Path(__file__).parent.parent.parent / '.env',  # voicechat/.env
-    Path(__file__).parent / '.env',  # backend/.env (fallback)
+    Path(__file__).parent.parent / '.env',  # voicechat/.env
+    Path(__file__).parent / '.env',  # backend-python/.env (fallback)
     Path.cwd().parent / '.env',  # parent of cwd
 ]
 

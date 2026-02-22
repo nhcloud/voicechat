@@ -10,12 +10,12 @@ var builder = WebApplication.CreateBuilder(args);
 // Try multiple paths to find the .env file
 var envPaths = new[]
 {
-    // From dotnet/backend to voicechat root (../../.env)
-    Path.Combine(Directory.GetCurrentDirectory(), "..", "..", ".env"),
-    // From dotnet/backend/bin/Debug/net10.0 to voicechat root
-    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".env"),
-    // Sibling to dotnet folder
+    // From backend-dotnet to voicechat root (../.env)
     Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"),
+    // From backend-dotnet/bin/Debug/net10.0 to voicechat root
+    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".env"),
+    // Same directory as backend-dotnet
+    Path.Combine(Directory.GetCurrentDirectory(), ".env"),
 };
 
 var envLoaded = false;

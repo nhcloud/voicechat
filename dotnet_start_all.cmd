@@ -6,14 +6,14 @@ echo.
 
 REM Start .NET backend in a new window
 echo [1/2] Starting .NET Backend...
-start "DotNet Backend" cmd /k "cd /d %~dp0backend && dotnet run"
+start "DotNet Backend" cmd /k "cd /d %~dp0backend-dotnet && dotnet run"
 
 REM Wait a moment for backend to start
 timeout /t 3 /nobreak >nul
 
 REM Start UI server in a new window
 echo [2/2] Starting UI Server...
-start "UI Server" cmd /k "cd /d %~dp0..\ui && npm start"
+start "UI Server" cmd /k "cd /d %~dp0frontend && npm start"
 
 echo.
 echo Both services are starting in separate windows.

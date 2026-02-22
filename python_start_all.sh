@@ -8,9 +8,8 @@ echo
 
 # Start Python backend in background with venv activation
 echo "[1/2] Starting Python Backend (activating .venv)..."
-cd "$SCRIPT_DIR"
+cd "$SCRIPT_DIR/backend-python"
 source .venv/bin/activate
-cd backend
 python server.py &
 PYTHON_PID=$!
 
@@ -19,7 +18,7 @@ sleep 3
 
 # Start UI server in background
 echo "[2/2] Starting UI Server..."
-cd "$SCRIPT_DIR/../ui"
+cd "$SCRIPT_DIR/frontend"
 npm start &
 UI_PID=$!
 

@@ -109,22 +109,23 @@ voicechat/
 ├── .env.template         # Environment variables template
 ├── .env                  # Your local credentials (git-ignored)
 ├── README.md             # This file
+├── dotnet_start_all.cmd  # Windows: Start .NET backend + UI
+├── dotnet_start_all.sh   # Linux/Mac: Start .NET backend + UI
+├── python_start_all.cmd  # Windows: Start Python backend + UI
+├── python_start_all.sh   # Linux/Mac: Start Python backend + UI
 │
-├── dotnet/               # .NET Backend
+├── backend-dotnet/       # .NET Backend
 │   ├── README.md         # .NET-specific setup
 │   ├── concepts.ipynb    # .NET concepts notebook
-│   ├── start_all.cmd     # Windows: Start .NET backend + UI
-│   ├── start_all.sh      # Linux/Mac: Start .NET backend + UI
-│   └── backend/          # WebSocket server (port 8001)
+│   ├── Program.cs        # WebSocket server (port 8001)
+│   └── Services/         # Service implementations
 │
-├── python/               # Python Backend
+├── backend-python/       # Python Backend
 │   ├── README.md         # Python-specific setup
 │   ├── concepts.ipynb    # Python concepts notebook
-│   ├── start_all.cmd     # Windows: Start Python backend + UI (activates .venv)
-│   ├── start_all.sh      # Linux/Mac: Start Python backend + UI (activates .venv)
-│   └── backend/          # WebSocket server (port 8001)
+│   └── server.py         # WebSocket server (port 8001)
 │
-└── ui/                   # Shared Frontend (Node.js)
+└── frontend/             # Shared Frontend (Node.js)
     ├── README.md         # Frontend documentation
     ├── index.html        # Main UI
     ├── styles.css        # ChatGPT-style theme
@@ -160,14 +161,14 @@ Use the provided startup scripts to launch both backend and UI together:
 **Windows:**
 | Backend | Command |
 |---------|---------|
-| .NET | `dotnet\start_all.cmd` |
-| Python | `python\start_all.cmd` |
+| .NET | `dotnet_start_all.cmd` |
+| Python | `python_start_all.cmd` |
 
 **Linux/Mac:**
 | Backend | Command |
 |---------|---------|
-| .NET | `./dotnet/start_all.sh` |
-| Python | `./python/start_all.sh` |
+| .NET | `./dotnet_start_all.sh` |
+| Python | `./python_start_all.sh` |
 
 > **Note:** Python scripts automatically activate the `.venv` virtual environment.
 
@@ -177,15 +178,15 @@ Choose **one** backend to run:
 
 | Backend | Command |
 |---------|---------|
-| Python | `cd python/backend && pip install -r ../requirements.txt --pre && python3 server.py` |
-| .NET | `cd dotnet/backend && dotnet run` |
+| Python | `cd backend-python && pip install -r requirements.txt --pre && python3 server.py` |
+| .NET | `cd backend-dotnet && dotnet run` |
 
-See [Python README](python/README.md) or [.NET README](dotnet/README.md) for detailed setup.
+See [Python README](backend-python/README.md) or [.NET README](backend-dotnet/README.md) for detailed setup.
 
 ### Step 3: Start the Frontend (if not using startup scripts)
 
 ```bash
-cd ui
+cd frontend
 node server.js
 # or
 npm start
@@ -257,16 +258,16 @@ Configure in `.env` file at the project root:
 
 ## 📚 Platform-Specific Documentation
 
-- [Python Backend](python/README.md) - Python setup, dependencies, and Agent Framework usage
-- [.NET Backend](dotnet/README.md) - .NET setup, dependencies, and Agent Framework usage
-- [Frontend UI](ui/README.md) - Frontend setup and configuration
+- [Python Backend](backend-python/README.md) - Python setup, dependencies, and Agent Framework usage
+- [.NET Backend](backend-dotnet/README.md) - .NET setup, dependencies, and Agent Framework usage
+- [Frontend UI](frontend/README.md) - Frontend setup and configuration
 
 ## 📓 Concept Notebooks
 
 Interactive notebooks explaining the architecture and Agent Framework concepts:
 
-- [Python Concepts](python/concepts.ipynb) - Python Agent Framework patterns
-- [.NET Concepts](dotnet/concepts.ipynb) - .NET Agent Framework patterns
+- [Python Concepts](backend-python/concepts.ipynb) - Python Agent Framework patterns
+- [.NET Concepts](backend-dotnet/concepts.ipynb) - .NET Agent Framework patterns
 
 ## 🔗 Resources
 

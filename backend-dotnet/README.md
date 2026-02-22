@@ -15,7 +15,6 @@ The .NET implementation of the Voice Chat backend using ASP.NET Core and Microso
 ### 1. Start the Backend
 
 ```bash
-cd backend
 dotnet run
 ```
 
@@ -24,7 +23,7 @@ The backend will start on **http://localhost:8001**.
 ### 2. Start the Frontend
 
 ```bash
-cd ../../ui
+cd ../frontend
 node server.js
 # or: npm start
 ```
@@ -34,19 +33,18 @@ The frontend will start on **http://localhost:8000** and open in your browser.
 ## Project Structure
 
 ```
-dotnet/
+backend-dotnet/
 ├── README.md                     # This file
 ├── VoiceChat.sln                 # Solution file
 ├── concepts.ipynb                # Agent Framework concepts notebook
-└── backend/
-    ├── VoiceChat.Backend.csproj  # Project file
-    ├── Program.cs                # Entry point, WebSocket server
-    └── Services/
-        ├── AzureOpenAISettings.cs    # Configuration POCO
-        ├── AzureRealtimeService.cs   # Voice mode (Realtime API)
-        ├── AzureChatService.cs       # Text mode (Agent Framework)
-        ├── SessionManager.cs         # User session tracking
-        └── RateLimiter.cs            # Request rate limiting
+├── VoiceChat.Backend.csproj      # Project file
+├── Program.cs                    # Entry point, WebSocket server
+└── Services/
+    ├── AzureOpenAISettings.cs    # Configuration POCO
+    ├── AzureRealtimeService.cs   # Voice mode (Realtime API)
+    ├── AzureChatService.cs       # Text mode (Agent Framework)
+    ├── SessionManager.cs         # User session tracking
+    └── RateLimiter.cs            # Request rate limiting
 ```
 
 ## Dependencies
@@ -258,7 +256,6 @@ dotnet restore
 
 Make sure the backend server is running:
 ```bash
-cd backend
 dotnet run
 ```
 

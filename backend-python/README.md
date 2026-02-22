@@ -31,7 +31,6 @@ pip install -r requirements.txt --pre
 ### 3. Start the Backend
 
 ```bash
-cd backend
 python3 server.py
 ```
 
@@ -40,7 +39,7 @@ The backend will start on **http://localhost:8001**.
 ### 4. Start the Frontend
 
 ```bash
-cd ../../ui
+cd ../frontend
 node server.js
 # or: npm start
 ```
@@ -50,12 +49,12 @@ The frontend will start on **http://localhost:8000** and open in your browser.
 ## Project Structure
 
 ```
-python/
+backend-python/
 ├── README.md             # This file
 ├── requirements.txt      # Python dependencies
 ├── concepts.ipynb        # Agent Framework concepts notebook
-└── backend/
-    └── server.py         # WebSocket server with Agent Framework
+├── server.py             # WebSocket server with Agent Framework
+└── weather_tool.py       # Weather tool for function calling
 ```
 
 ## Dependencies
@@ -266,7 +265,6 @@ pip install -r requirements.txt --pre
 
 Make sure the backend server is running:
 ```bash
-cd backend
 python3 server.py
 ```
 

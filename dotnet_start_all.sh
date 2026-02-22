@@ -8,7 +8,7 @@ echo
 
 # Start .NET backend in background
 echo "[1/2] Starting .NET Backend..."
-cd "$SCRIPT_DIR/backend"
+cd "$SCRIPT_DIR/backend-dotnet"
 dotnet run &
 DOTNET_PID=$!
 
@@ -17,7 +17,7 @@ sleep 3
 
 # Start UI server in background
 echo "[2/2] Starting UI Server..."
-cd "$SCRIPT_DIR/../ui"
+cd "$SCRIPT_DIR/frontend"
 npm start &
 UI_PID=$!
 
