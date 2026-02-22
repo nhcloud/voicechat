@@ -28,10 +28,11 @@ public class AzureOpenAISettings
     /// <summary>
     /// API version for Realtime API (API_VERSION_REALTIME)
     /// </summary>
-    public string RealtimeApiVersion { get; set; } = "2024-10-01-preview";
+    public string RealtimeApiVersion { get; set; } = "2025-04-01-preview";
 
     /// <summary>
     /// API version for Chat Completion API (API_VERSION_CHAT)
     /// </summary>
-    public string ChatApiVersion { get; set; } = "2024-02-15-preview";
+    public string ChatApiVersion { get; set; } = "2025-04-01-preview";
+
 }

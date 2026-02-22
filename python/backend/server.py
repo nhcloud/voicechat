@@ -64,11 +64,11 @@ AZURE_API_KEY = os.getenv('AZURE_API_KEY', '')
 
 # Model Deployments
 AZURE_REALTIME_DEPLOYMENT = os.getenv('AZURE_REALTIME_DEPLOYMENT', 'gpt-realtime')
-AZURE_CHAT_DEPLOYMENT = os.getenv('AZURE_CHAT_DEPLOYMENT', 'gpt-4o')  # or gpt-4, gpt-35-turbo
+AZURE_CHAT_DEPLOYMENT = os.getenv('AZURE_CHAT_DEPLOYMENT', 'gpt-4.1')  # or gpt-4, gpt-35-turbo
 
 # API Versions
-API_VERSION_REALTIME = os.getenv('API_VERSION_REALTIME', '2024-10-01-preview')
-API_VERSION_CHAT = os.getenv('API_VERSION_CHAT', '2024-02-15-preview')
+API_VERSION_REALTIME = os.getenv('API_VERSION_REALTIME', '2025-04-01-preview')
+API_VERSION_CHAT = os.getenv('API_VERSION_CHAT', '2025-04-01-preview')
 
 # Server Configuration
 SERVER_HOST = '0.0.0.0'

@@ -63,8 +63,8 @@ var azureSettings = new AzureOpenAISettings
     ApiKey = Environment.GetEnvironmentVariable("AZURE_API_KEY") ?? string.Empty,
     RealtimeDeployment = Environment.GetEnvironmentVariable("AZURE_REALTIME_DEPLOYMENT") ?? "gpt-realtime",
     ChatDeployment = Environment.GetEnvironmentVariable("AZURE_CHAT_DEPLOYMENT") ?? "gpt-4o",
-    RealtimeApiVersion = Environment.GetEnvironmentVariable("API_VERSION_REALTIME") ?? "2024-10-01-preview",
-    ChatApiVersion = Environment.GetEnvironmentVariable("API_VERSION_CHAT") ?? "2024-02-15-preview"
+    RealtimeApiVersion = Environment.GetEnvironmentVariable("API_VERSION_REALTIME") ?? "2025-04-01-preview",
+    ChatApiVersion = Environment.GetEnvironmentVariable("API_VERSION_CHAT") ?? "2025-04-01-preview"
 };
 
 // Validate and display configuration
