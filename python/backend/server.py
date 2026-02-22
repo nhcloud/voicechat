@@ -81,7 +81,7 @@ _chat_client = None
 _agent_lock = asyncio.Lock()
 
 # Session Management
-sessions: Dict[str, dict] = {}  # session_id -> {user_id, mode, created_at, azure_ws, client_ws, thread}
+sessions: Dict[str, dict] = {}  # session_id -> {user_id, mode, created_at, azure_ws, client_ws, agent_session}
 user_connections: Dict[str, Set[str]] = defaultdict(set)  # user_id -> set of session_ids
 user_requests: Dict[str, list] = defaultdict(list)  # user_id -> list of timestamps
 
@@ -161,17 +161,17 @@ async def get_chat_agent():
             return None
 
 
-async def call_azure_chat_api_with_agent(message: str, thread) -> str:
+async def call_azure_chat_api_with_agent(message: str, agent_session) -> str:
     """
     Call Azure Chat API using Microsoft Agent Framework (ChatAgent).
     This mirrors the .NET AzureChatService pattern using AIAgent.
     
     Pattern follows:
-    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_with_thread.py
+    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_with_session.py
     
     Args:
         message: User's text message
-        thread: The agent thread for conversation history
+        agent_session: The agent session for conversation history
     
     Returns:
         The assistant's response text
@@ -182,8 +182,8 @@ async def call_azure_chat_api_with_agent(message: str, thread) -> str:
     
     try:
         # Run the agent with the user's message (mirrors .NET's agent.RunAsync)
-        # Using non-streaming for simplicity - thread maintains conversation history
-        result = await agent.run(message, thread=thread)
+        # Using non-streaming for simplicity - session maintains conversation history
+        result = await agent.run(message, session=agent_session)
         
         # AgentRunResponse has a text property with the response content
         response_text = str(result) if result else "No response generated."
@@ -207,7 +207,7 @@ def create_session(user_id: str, mode: str) -> str:
         'azure_ws': None,
         'client_ws': None,
         'message_count': 0,
-        'thread': None  # Agent thread for text mode conversation history
+        'agent_session': None  # Agent session for text mode conversation history (RC1)
     }
     user_connections[user_id].add(session_id)
     logger.info(f"✓ Created {mode} session {session_id} for user {user_id}")
@@ -447,7 +447,7 @@ async def handle_text_mode(websocket, session_id: str):
     This mirrors the .NET AzureChatService implementation using AIAgent.
     
     Pattern follows:
-    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_with_thread.py
+    https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/azure_openai/azure_chat_client_with_session.py
     """
     try:
         # Get the ChatAgent instance
@@ -459,10 +459,10 @@ async def handle_text_mode(websocket, session_id: str):
             }))
             return
         
-        # Create a new thread for this conversation session (like .NET's agent.GetNewThread())
-        # The thread maintains conversation history across multiple agent.run() calls
-        thread = agent.get_new_thread()
-        sessions[session_id]['thread'] = thread
+        # Create a new session for this conversation (like .NET's agent.CreateSessionAsync())
+        # The session maintains conversation history across multiple agent.run() calls
+        agent_session = await agent.create_session()
+        sessions[session_id]['agent_session'] = agent_session
         
         logger.info(f"✓ Text mode activated with ChatAgent for session {session_id[:8]}")
         
@@ -490,7 +490,7 @@ async def handle_text_mode(websocket, session_id: str):
                         logger.info(f"📨 [{session_id[:8]}] User: {user_message[:50]}...")
                         
                         # Call the agent using the Agent Framework (mirrors .NET's agent.RunAsync)
-                        response = await call_azure_chat_api_with_agent(user_message, thread)
+                        response = await call_azure_chat_api_with_agent(user_message, agent_session)
                         logger.info(f"📨 [{session_id[:8]}] Assistant: {response[:50]}...")
                         
                         # Send back to client

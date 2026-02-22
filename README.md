@@ -43,20 +43,20 @@ Both Python and .NET backends use [Microsoft Agent Framework](https://github.com
 
 ### Key Benefits
 
-- **Conversation Memory**: `AgentThread` maintains context across multiple turns
+- **Conversation Memory**: `AgentSession` maintains context across multiple turns
 - **Unified API**: Same patterns work in Python and .NET
 - **Tool Support**: Add custom functions that the AI can invoke
 - **Streaming**: Built-in streaming response support
 - **Enterprise Ready**: Production-quality AI orchestration
 
-### API Comparison
+### API Comparison (RC1)
 
 | Concept | Python | .NET |
 |---------|--------|------|
 | **Client** | `AzureOpenAIChatClient` | `AzureOpenAIClient` |
-| **Create Agent** | `client.create_agent(instructions=...)` | `chatClient.CreateAIAgent(instructions: ...)` |
-| **Run Agent** | `await agent.run(message, thread=thread)` | `await agent.RunAsync(message, thread)` |
-| **New Thread** | `agent.get_new_thread()` | `agent.GetNewThread()` |
+| **Create Agent** | `client.create_agent(instructions=...)` | `chatClient.AsAIAgent(instructions: ...)` |
+| **Run Agent** | `await agent.run(message, session=session)` | `await agent.RunAsync(messages, session)` |
+| **New Session** | `await agent.create_session()` | `await agent.CreateSessionAsync()` |
 | **Streaming** | `agent.run_stream()` | `agent.RunStreamingAsync()` |
 
 ### Python Example
@@ -72,11 +72,11 @@ client = AzureOpenAIChatClient(
 )
 agent = client.create_agent(instructions="You are a helpful assistant.")
 
-# Create thread for conversation memory
-thread = agent.get_new_thread()
+# Create session for conversation memory (RC1)
+session = await agent.create_session()
 
 # Run with context
-result = await agent.run("Hello!", thread=thread)
+result = await agent.run("Hello!", session=session)
 ```
 
 ### .NET Example
@@ -88,16 +88,16 @@ using Azure.AI.OpenAI;
 // Create client and agent
 var client = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
 var chatClient = client.GetChatClient(deploymentName);
-var agent = chatClient.CreateAIAgent(
+var agent = chatClient.AsAIAgent(
     name: "ChatAssistant",
     instructions: "You are a helpful assistant."
 );
 
-// Create thread for conversation memory
-var thread = agent.GetNewThread();
+// Create session for conversation memory (RC1)
+var session = await agent.CreateSessionAsync();
 
 // Run with context
-var result = await agent.RunAsync("Hello!", thread);
+var result = await agent.RunAsync(messages, session);
 ```
 
 See [Agent Framework GitHub](https://github.com/microsoft/agent-framework) for more examples and documentation.
@@ -113,11 +113,15 @@ voicechat/
 ├── dotnet/               # .NET Backend
 │   ├── README.md         # .NET-specific setup
 │   ├── concepts.ipynb    # .NET concepts notebook
+│   ├── start_all.cmd     # Windows: Start .NET backend + UI
+│   ├── start_all.sh      # Linux/Mac: Start .NET backend + UI
 │   └── backend/          # WebSocket server (port 8001)
 │
 ├── python/               # Python Backend
 │   ├── README.md         # Python-specific setup
 │   ├── concepts.ipynb    # Python concepts notebook
+│   ├── start_all.cmd     # Windows: Start Python backend + UI (activates .venv)
+│   ├── start_all.sh      # Linux/Mac: Start Python backend + UI (activates .venv)
 │   └── backend/          # WebSocket server (port 8001)
 │
 └── ui/                   # Shared Frontend (Node.js)
@@ -149,7 +153,25 @@ cp .env.template .env
 # Edit .env with your Azure credentials
 ```
 
-### Step 2: Start a Backend
+### Step 2: Start Backend + UI (Recommended)
+
+Use the provided startup scripts to launch both backend and UI together:
+
+**Windows:**
+| Backend | Command |
+|---------|---------|
+| .NET | `dotnet\start_all.cmd` |
+| Python | `python\start_all.cmd` |
+
+**Linux/Mac:**
+| Backend | Command |
+|---------|---------|
+| .NET | `./dotnet/start_all.sh` |
+| Python | `./python/start_all.sh` |
+
+> **Note:** Python scripts automatically activate the `.venv` virtual environment.
+
+### Step 2 (Alternative): Start Backend Manually
 
 Choose **one** backend to run:
 
@@ -160,7 +182,7 @@ Choose **one** backend to run:
 
 See [Python README](python/README.md) or [.NET README](dotnet/README.md) for detailed setup.
 
-### Step 3: Start the Frontend
+### Step 3: Start the Frontend (if not using startup scripts)
 
 ```bash
 cd ui
