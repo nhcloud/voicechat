@@ -29,7 +29,7 @@ from pathlib import Path
 from agent_framework.azure import AzureOpenAIChatClient
 
 # Weather tool for function calling
-from weather_tool import execute_tool
+from weather_tool import execute_tool, get_weather_for_city
 
 # Load environment variables from root voicechat folder
 # Try multiple locations for .env file
@@ -146,9 +146,22 @@ async def get_chat_agent():
                 api_key=AZURE_API_KEY,
             )
             
+            # Weather tool as a plain callable for Agent Framework RC1
+            # The framework auto-generates the JSON schema from the function signature and docstring
+            def get_weather(city: str, unit: str = "celsius") -> str:
+                """Get the current weather for a specified city. Call this whenever the user asks about weather conditions in a specific location.
+
+                Args:
+                    city: The city name to get weather for (e.g., 'Seattle', 'New York', 'London')
+                    unit: Temperature unit - 'celsius' or 'fahrenheit'
+                """
+                import json
+                return json.dumps(get_weather_for_city(city, unit))
+
             # Create agent from the chat client (like .NET's CreateAIAgent)
-            _chat_agent = _chat_client.create_agent(
-                instructions="You are a helpful assistant. Respond naturally and concisely.",
+            _chat_agent = _chat_client.as_agent(
+                instructions="You are a helpful assistant. Respond naturally and concisely. When asked about weather, use the get_weather tool.",
+                tools=[get_weather],
             )
             
             logger.info("✓ ChatAgent initialized with Microsoft Agent Framework (AzureOpenAIChatClient)")
@@ -461,7 +474,8 @@ async def handle_text_mode(websocket, session_id: str):
         
         # Create a new session for this conversation (like .NET's agent.CreateSessionAsync())
         # The session maintains conversation history across multiple agent.run() calls
-        agent_session = await agent.create_session()
+        # Note: create_session() is synchronous in agent-framework-core 1.0.0rc1
+        agent_session = agent.create_session()
         sessions[session_id]['agent_session'] = agent_session
         
         logger.info(f"✓ Text mode activated with ChatAgent for session {session_id[:8]}")

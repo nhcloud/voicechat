@@ -9,8 +9,8 @@ python-dotenv>=1.0.0
 # The --pre flag is required while Agent Framework is in preview
 # Install with: pip install -r requirements.txt --pre
 # Provides AzureOpenAIChatClient in agent_framework.azure
-agent-framework-core
-agent-framework-azure-ai
+agent-framework-core==1.0.0rc1
+agent-framework-azure-ai==1.0.0rc1
 
 # Azure Identity for authentication (for AzureCliCredential if needed)
 azure-identity>=1.15.0

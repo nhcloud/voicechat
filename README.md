@@ -172,6 +172,11 @@ Use the provided startup scripts to launch both backend and UI together:
 
 > **Note:** Python scripts automatically activate the `.venv` virtual environment.
 
+> **Permission Denied?** If you get `permission denied` when running the shell scripts, make them executable first:
+> ```bash
+> chmod +x python_start_all.sh dotnet_start_all.sh
+> ```
+
 ### Step 2 (Alternative): Start Backend Manually
 
 Choose **one** backend to run:

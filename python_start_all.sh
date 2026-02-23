@@ -1,6 +1,9 @@
 #!/bin/bash
 # Start Python Backend (with venv) and UI
 
+# Ensure scripts are executable (fixes 'permission denied' on first run)
+chmod +x "$0" 2>/dev/null
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "Starting Python Backend and UI..."
