@@ -44,8 +44,9 @@ public class AzureChatService
 
             _agent = chatClient.AsAIAgent(
                 name: "ChatAssistant",
-                instructions: "You are a helpful assistant. Respond naturally and concisely.",
+                instructions: "You are a helpful assistant. Respond naturally and concisely. When asked about weather, use the GetWeather tool.",
                 description: "A helpful chat assistant powered by Azure OpenAI",
+                tools: [WeatherTool.CreateAITool()],
                 loggerFactory: loggerFactory);
         }
     }

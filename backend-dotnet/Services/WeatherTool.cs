@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Text.Json;
+using Microsoft.Extensions.AI;
 
 namespace VoiceChat.Backend.Services;
 
@@ -8,6 +10,23 @@ namespace VoiceChat.Backend.Services;
 /// </summary>
 public static class WeatherTool
 {
+    /// <summary>
+    /// Get the current weather for a city. Used by Microsoft Agent Framework as an AIFunction tool.
+    /// </summary>
+    [Description("Get the current weather for a specified city. Call this whenever the user asks about weather conditions in a specific location.")]
+    public static string GetWeather(
+        [Description("The city name to get weather for (e.g., 'Seattle', 'New York', 'London')")] string city,
+        [Description("Temperature unit: 'celsius' or 'fahrenheit'")] string unit = "celsius")
+    {
+        var weather = GetWeatherForCity(city, unit);
+        return JsonSerializer.Serialize(weather);
+    }
+
+    /// <summary>
+    /// Creates an AITool for the weather function, for use with Microsoft Agent Framework.
+    /// </summary>
+    public static AITool CreateAITool() => AIFunctionFactory.Create(GetWeather);
+
     /// <summary>
     /// Tool definition to register with Azure OpenAI
     /// </summary>
