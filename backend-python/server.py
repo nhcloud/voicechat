@@ -66,10 +66,6 @@ AZURE_API_KEY = os.getenv('AZURE_API_KEY', '')
 AZURE_REALTIME_DEPLOYMENT = os.getenv('AZURE_REALTIME_DEPLOYMENT', 'gpt-realtime')
 AZURE_CHAT_DEPLOYMENT = os.getenv('AZURE_CHAT_DEPLOYMENT', 'gpt-4.1')  # or gpt-4, gpt-35-turbo
 
-# API Versions
-API_VERSION_REALTIME = os.getenv('API_VERSION_REALTIME', '2025-04-01-preview')
-API_VERSION_CHAT = os.getenv('API_VERSION_CHAT', '2025-04-01-preview')
-
 # Server Configuration
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 8001
@@ -112,7 +108,7 @@ def build_azure_realtime_url():
     
     url = (
         f"{ws_endpoint}openai/realtime"
-        f"?api-version={API_VERSION_REALTIME}"
+        f"?api-version=2025-04-01-preview"
         f"&deployment={AZURE_REALTIME_DEPLOYMENT}"
         f"&api-key={AZURE_API_KEY}"
     )
