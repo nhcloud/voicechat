@@ -63,7 +63,6 @@ var azureSettings = new AzureOpenAISettings
     ApiKey = Environment.GetEnvironmentVariable("AZURE_API_KEY") ?? string.Empty,
     RealtimeDeployment = Environment.GetEnvironmentVariable("AZURE_REALTIME_DEPLOYMENT") ?? "gpt-realtime",
     ChatDeployment = Environment.GetEnvironmentVariable("AZURE_CHAT_DEPLOYMENT") ?? "gpt-4o",
-    RealtimeApiVersion = Environment.GetEnvironmentVariable("API_VERSION_REALTIME") ?? "2025-04-01-preview",
     ChatApiVersion = Environment.GetEnvironmentVariable("API_VERSION_CHAT") ?? "2025-04-01-preview"
 };
 
@@ -74,8 +73,8 @@ Console.WriteLine($"  Endpoint: {(string.IsNullOrEmpty(azureSettings.Endpoint) ?
 Console.WriteLine($"  API Key: {(string.IsNullOrEmpty(azureSettings.ApiKey) ? "❌ NOT SET" : "✓ (hidden)")}");
 Console.WriteLine($"  Realtime Deployment: {azureSettings.RealtimeDeployment}");
 Console.WriteLine($"  Chat Deployment: {azureSettings.ChatDeployment}");
-Console.WriteLine($"  Realtime API Version: {azureSettings.RealtimeApiVersion}");
 Console.WriteLine($"  Chat API Version: {azureSettings.ChatApiVersion}");
+Console.WriteLine($"  Note: Realtime API (GA) no longer requires api-version");
 Console.WriteLine("======================================================================");
 
 if (string.IsNullOrEmpty(azureSettings.Endpoint) || string.IsNullOrEmpty(azureSettings.ApiKey))

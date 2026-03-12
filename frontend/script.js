@@ -297,6 +297,7 @@ function sendSessionUpdate() {
     ws.send(JSON.stringify({
         type: 'session.update',
         session: {
+            type: 'realtime',
             instructions: 'You are a helpful voice assistant. Respond naturally and concisely. When users ask about weather in a city, use the get_weather function to retrieve current weather information.',
             modalities: ['audio', 'text'],
             turn_detection: {
@@ -372,11 +373,11 @@ function handleVoiceMessage(data) {
                 stopAllScheduledAudio();
                 break;
                 
-            case 'response.audio_transcript.delta':
+            case 'response.output_audio_transcript.delta':
                 if (event.delta) console.log('💬', event.delta);
                 break;
                 
-            case 'response.audio.delta':
+            case 'response.output_audio.delta':
                 if (event.delta && !isCancelling) {
                     audioChunks.push(event.delta);
                     // Show speaking animation when AI starts responding
@@ -388,7 +389,7 @@ function handleVoiceMessage(data) {
                 }
                 break;
                 
-            case 'response.audio.done':
+            case 'response.output_audio.done':
                 processAudioBuffer(true);
                 break;
                 

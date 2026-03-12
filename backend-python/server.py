@@ -66,10 +66,6 @@ AZURE_API_KEY = os.getenv('AZURE_API_KEY', '')
 AZURE_REALTIME_DEPLOYMENT = os.getenv('AZURE_REALTIME_DEPLOYMENT', 'gpt-realtime')
 AZURE_CHAT_DEPLOYMENT = os.getenv('AZURE_CHAT_DEPLOYMENT', 'gpt-4.1')  # or gpt-4, gpt-35-turbo
 
-# API Versions
-API_VERSION_REALTIME = os.getenv('API_VERSION_REALTIME', '2025-04-01-preview')
-API_VERSION_CHAT = os.getenv('API_VERSION_CHAT', '2025-04-01-preview')
-
 # Server Configuration
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 8001
@@ -105,16 +101,18 @@ def validate_azure_config():
 
 
 def build_azure_realtime_url():
-    """Build Azure WebSocket URL for Realtime API"""
+    """Build Azure WebSocket URL for Realtime GA API.
+    GA format: /openai/v1/realtime?model=<deployment>
+    No api-version needed. api-key passed via header.
+    """
     ws_endpoint = AZURE_ENDPOINT.replace('https://', 'wss://')
     if not ws_endpoint.endswith('/'):
         ws_endpoint += '/'
     
+    # GA API uses 'model=' not 'deployment=' (preview used 'deployment=')
     url = (
-        f"{ws_endpoint}openai/realtime"
-        f"?api-version={API_VERSION_REALTIME}"
-        f"&deployment={AZURE_REALTIME_DEPLOYMENT}"
-        f"&api-key={AZURE_API_KEY}"
+        f"{ws_endpoint}openai/v1/realtime"
+        f"?model={AZURE_REALTIME_DEPLOYMENT}"
     )
     return url
 
@@ -406,10 +404,13 @@ async def handle_voice_mode(websocket, session_id: str):
         logger.info(f"Connecting to Azure Realtime API for session {session_id[:8]}...")
         
         azure_url = build_azure_realtime_url()
-        logger.debug(f"Azure URL (key hidden): {azure_url.split('&api-key=')[0]}")
+        logger.debug(f"Azure URL: {azure_url}")
         
         async with websockets.connect(
             azure_url,
+            additional_headers={
+                'api-key': AZURE_API_KEY,
+            },
             max_size=10 * 1024 * 1024,  # 10MB max message size
             ping_interval=20,
             ping_timeout=20,

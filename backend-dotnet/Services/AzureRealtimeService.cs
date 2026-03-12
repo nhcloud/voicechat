@@ -32,12 +32,12 @@ public class AzureRealtimeService
         ValidateConfiguration();
         
         var azureWsUrl = BuildAzureRealtimeUrl();
-        // Log URL without API key for debugging
-        var debugUrl = azureWsUrl.Split("&api-key=")[0];
         _logger.LogInformation("Connecting to Azure Realtime API for session {SessionId}...", sessionId[..8]);
-        _logger.LogInformation("Azure URL (key hidden): {Url}", debugUrl);
+        _logger.LogInformation("Azure URL: {Url}", azureWsUrl);
 
         using var azureWs = new ClientWebSocket();
+        // GA API: Pass api-key via header instead of URL query parameter
+        azureWs.Options.SetRequestHeader("api-key", _settings.ApiKey);
         
         try
         {
@@ -367,11 +367,11 @@ public class AzureRealtimeService
 
     private string BuildAzureRealtimeUrl()
     {
+        // GA API format: /openai/v1/realtime?model=<deployment>
+        // No api-version needed. api-key passed via header.
         var wsEndpoint = _settings.Endpoint.Replace("https://", "wss://").TrimEnd('/');
-        return $"{wsEndpoint}/openai/realtime" +
-               $"?api-version={_settings.RealtimeApiVersion}" +
-               $"&deployment={_settings.RealtimeDeployment}" +
-               $"&api-key={_settings.ApiKey}";
+        return $"{wsEndpoint}/openai/v1/realtime" +
+               $"?model={_settings.RealtimeDeployment}";
     }
 
     private void ValidateConfiguration()
