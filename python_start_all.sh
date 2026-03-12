@@ -27,8 +27,8 @@ UI_PID=$!
 
 echo
 echo "Both services are running:"
-echo "- Python Backend (PID: $PYTHON_PID): http://localhost:8001 (or configured port)"
-echo "- UI Server (PID: $UI_PID): http://localhost:3000 (or configured port)"
+echo "- Python Backend (PID: $PYTHON_PID): http://localhost:8001"
+echo "- UI Server (PID: $UI_PID): http://localhost:8000"
 echo
 echo "Press Ctrl+C to stop all services"
 

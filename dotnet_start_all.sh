@@ -26,8 +26,8 @@ UI_PID=$!
 
 echo
 echo "Both services are running:"
-echo "- .NET Backend (PID: $DOTNET_PID): http://localhost:5000 (or configured port)"
-echo "- UI Server (PID: $UI_PID): http://localhost:3000 (or configured port)"
+echo "- .NET Backend (PID: $DOTNET_PID): http://localhost:8001"
+echo "- UI Server (PID: $UI_PID): http://localhost:8000"
 echo
 echo "Press Ctrl+C to stop all services"
 

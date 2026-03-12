@@ -17,7 +17,7 @@ start "UI Server" cmd /k "cd /d %~dp0frontend && npm start"
 
 echo.
 echo Both services are starting in separate windows.
-echo - .NET Backend: http://localhost:5000 (or configured port)
-echo - UI Server: http://localhost:3000 (or configured port)
+echo - .NET Backend: http://localhost:8001
+echo - UI Server: http://localhost:8000
 echo.
 pause
