@@ -26,12 +26,8 @@ public class AzureOpenAISettings
     public string ChatDeployment { get; set; } = "gpt-4o";
 
     /// <summary>
-    /// API version for Realtime API (API_VERSION_REALTIME)
-    /// </summary>
-    public string RealtimeApiVersion { get; set; } = "2025-04-01-preview";
-
-    /// <summary>
     /// API version for Chat Completion API (API_VERSION_CHAT)
+    /// Note: Realtime API (GA) no longer requires api-version as of the migration from preview
     /// </summary>
     public string ChatApiVersion { get; set; } = "2025-04-01-preview";
 
