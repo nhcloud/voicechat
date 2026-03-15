@@ -9,9 +9,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Starting Python Backend and UI..."
 echo
 
+# Create venv if it doesn't exist
+cd "$SCRIPT_DIR/backend-python"
+if [ ! -d ".venv" ]; then
+    echo ".venv not found, creating virtual environment..."
+    python3 -m venv .venv
+    echo "Installing dependencies..."
+    source .venv/bin/activate
+    pip install -r requirements.txt
+    deactivate
+    echo
+fi
+
 # Start Python backend in background with venv activation
 echo "[1/2] Starting Python Backend (activating .venv)..."
-cd "$SCRIPT_DIR/backend-python"
 source .venv/bin/activate
 python server.py &
 PYTHON_PID=$!

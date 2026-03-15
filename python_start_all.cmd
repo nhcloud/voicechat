@@ -4,6 +4,15 @@ REM Start Python Backend (with venv) and UI
 echo Starting Python Backend and UI...
 echo.
 
+REM Create venv if it doesn't exist
+if not exist "%~dp0backend-python\.venv" (
+    echo .venv not found, creating virtual environment...
+    python -m venv "%~dp0backend-python\.venv"
+    echo Installing dependencies...
+    call "%~dp0backend-python\.venv\Scripts\activate" && pip install -r "%~dp0backend-python\requirements.txt" && deactivate
+    echo.
+)
+
 REM Start Python backend in a new window with venv activation
 echo [1/2] Starting Python Backend (activating .venv)...
 start "Python Backend" cmd /k "cd /d %~dp0backend-python && call .venv\Scripts\activate && python server.py"
